@@ -1,0 +1,68 @@
+name: Check WBS
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.csv"
+      - "**/*.tsv"
+      - "**/*.xlsx"
+      - "**/*.xls"
+      - "**/*.xlsm"
+      - "**/*.ods"
+      - "SKILL.md"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/check-wbs.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: check-wbs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Phân loại file
+        run: python -m unittest discover -s tests -v
+
+  review:
+    needs: test
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Kiểm tra secret
+        id: key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Thiếu secret OPENAI_API_KEY. Không gọi OpenAI." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Review WBS
+        if: steps.key.outputs.present == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python scripts/check_wbs.py
