@@ -1,0 +1,620 @@
+﻿gsc00002 - Fortune of Divine Beasts
+Game Designer: Pax
+CHANGELOG
+
+
+Time
+	Version
+	Changelog
+	Owner
+	22/9/2026
+	0.0.1
+	GDD Creation
+	Pax
+	4/11/2026
+	0.0.2
+	Remove Winning Chance display
+	Pax
+	13/11/2026
+	0.0.3
+	Update Feature: Jade Collect & Combination
+	Pax
+	________________
+SUMMARY
+
+
+Orientation
+	Landscape
+	Pay System
+	Multipliers, Cashout, Instant Win.
+	Special Feature
+	Bonus, Jackpot
+	Genre
+	Crash - Mine
+	Game Modes
+	Singleplay
+	Reference
+	2982 - Pharaoh’s Legacy
+	RTP
+	Target 98%:
+* RTP (Main game): 60–65% 
+* RTP (Bonus Multiplier): 30–35% 
+* Target RTP (Jackpot): 2–4%, including both the initial value and progressive contributions.
+	Volatility
+	Mid
+	Language
+	EN
+	Currency
+	USD
+	Target Audience
+	Casual players who like fast-paced, instant win games.
+	Theme
+	Mythical Beasts
+	Art Style
+	Semi Real, 2D Stylized
+	Moodboard
+	[gsc00002 - FODB] Moodboard.png
+	Game Flow Graph
+	[gsc00002-FODB] Game Flow
+	
+
+________________
+
+OVERVIEW
+* The game is a fast-paced, Asian-themed Mine-style gamble title designed around an intuitive grid-reveal mechanic for instant, high-stakes decision-making.
+* Incorporating the iconic legends of the Four Divine Beasts transforms traditional mine gameplay into a culturally rich treasure hunt that drives strong player resonance and high retention across Asian markets.
+* Combining a lightweight mobile-first engine with progressive payout multipliers ensures seamless, lag-free performance on all devices while delivering an exhilarating risk-and-reward experience.
+MOODBOARD
+Link:        [gsc00002 - FODB] Moodboard.png
+  
+
+BASE GAME
+* A Board composed of 16 tiles (lotus buds) serves as the playing area for the game.
+* To begin, press the "Start" button. Once initialized, select a tile on the grid; this action will reveal either a Gem or nothing.
+* If the tile shows a Gem (golden lotus), the main multiplier advances by one level (also for Sacred Jade), giving you the option to either continue playing or Cash Out.
+   * Cash Out: You receive the winnings based on the current multiplier level, then the round ends.
+* The player can choose multiple tiles in a short period of time, with limitation of 2 tiles at a time. After selection, these tiles will be revealed in chosen order and the result will be shown.
+* Revealing a tile with nothing (withered lotus) results in an immediate loss, concluding the round with no reward.
+* The round's difficulty is fully adjustable with 1, 2, or 3 empty tiles, mapping directly to Easy, Normal, and Hard levels.
+* Sacred Jade: Special Sacred Jade may be found when revealing tiles. Collecting these and making combos will give a bonus multiplier, and also gives you a chance of earning a bonus reward. 
+
+
+CORE LOOP
+  
+
+GAME FLOW
+Link: [gsc00002-FODB] Game Flow
+COMMON RULES
+* A round is defined as the entire period from the moment a player initiates the bet by pressing "Start" until the final payout outcome is determined (either the bet is lost or the winnings are credited back to the wallet).
+* A Block is defined as the entire period, from the moment a player chooses to open a tile until the resulting animation finishes (which could be a multiplier increase, a crash, or a Bonus animation).
+* Each round comprises multiple blocks. Successfully completing a block advances the multiplier by one increment.
+* A round of the game concludes with one of two outcomes: Cash Out or Crash.
+Cash Out: A player manually ends the round by pressing the Cash Out button, resulting in the winnings being transferred to their wallet.
+Crash: The round ends immediately, and no winnings are received for that round, when a Crash tile is revealed.
+* Upon reaching the maximum multiplier level, the player's round will conclude with an automatic Cash Out.
+DIFFICULTIES
+   * Players begin by selecting the number of blank tiles present in the board, which determines the round's difficulty level.
+   * There are three available difficulty levels:
+> Easy
+> Normal
+> Hard
+   * The chosen difficulty level directly impacts the Multiplier levels and associated rewards for the round.
+
+
+Multiplier level
+	Easy
+	Normal
+	Hard
+	1
+	1.05x
+	1.12x
+	1.21x
+	2
+	1.12x
+	1.29x
+	1.51x
+	3
+	1.20x
+	1.50x
+	1.89x
+	4
+	1.29x
+	1.75x
+	2.38x
+	5
+	1.38x
+	2.06x
+	3.05x
+	6
+	1.48x
+	2.45x
+	4.01x
+	7
+	1.59x
+	2.95x
+	5.44x
+	8
+	1.71x
+	3.55x
+	7.59x
+	9
+	1.83x
+	4.14x
+	10.82x
+	10
+	1.99x
+	4.71x
+	16.75x
+	11
+	2.17x
+	5.17x
+	30.49x
+	12
+	2.38x
+	6.40x
+	80.60x
+	13
+	2.75x
+	14.15x
+	416.20x
+	14
+	3.88x
+	72.40x
+	n/a
+	15
+	9.52x
+	n/a
+	n/a
+	* Reference values need to be configured with the GC.
+BET/ WIN
+BET
+      * Players can choose from 10 distinct bet sizes.
+      * A bet must be selected prior to the start of any round, and the corresponding amount is deducted before the round commences.
+Bet Amount
+(USD)
+	0.2
+	0.4
+	0.8
+	1
+	2
+	5
+	10
+	20
+	50
+	100
+	WIN
+Total Winnings = Bet Size * (Multiplier + Bonus Multiplier) + JP
+      * Payout: The amount awarded to the player immediately upon successfully cashing out a round.
+      * Total Winnings: The full monetary amount, including any Bonus prize, that is credited to the player's wallet after a successful Cash Out.
+      * Bet Size: The monetary amount placed by the player for that specific round.
+      * Multiplier: The specific multiplier value reached at the moment the player successfully performs a Cash Out.
+      * Bonus: Bonus feature which gives the player more multiplier when they manage to achieve it.
+      * Jackpot Reward (JP): Reward that user can get from Jackpot feature.
+GAME ELEMENTS
+GAME UI
+  
+
+Changing Bet Size
+      * Adjusting the Bet: Use the +/- buttons to increase or decrease the current bet size.
+      * Increasing the Bet: Press the + button.
+      * Decreasing the Bet: Press the - button.
+      * Button State: The + or - button will be disabled when it is not possible to increase or decrease the bet size further (e.g., reaching the maximum or minimum bet limit).
+      * Users can hold the button for fast selection.
+  
+
+Play Board (Grid)
+      * The game features a grid of 16 tiles as lotus buds.
+      * Players can tap on a tile  and reveal one of three results:
+      * Nothing (withered lotus): Results in an immediate Crash and ends the round.
+      * Gem (golden lotus): Increases the current multiplier.
+      * Sacred Jade (golden lotus with jade): Collecting these and making combinations helps increase the current multiplier and gives a bonus multiplier.
+      * Revealing tile and collecting Sacred Jade combinations will give bonus multipliers to players.
+      * The entire grid is revealed at the end of the round, whether by a Crash or a successful Cash Out, revealing all tiles to show their contents.
+
+
+Setting Menu
+Option
+	Description
+	SOUND
+	Toggles sound effects (SFX) ON or OFF.
+	MUSIC
+	Toggles background music (BGM) ON or OFF.
+	INFO
+	Displays the initial step of the Tutorial.
+	HISTORY
+	Opens the Bet History popup.
+	JACKPOT HISTORY
+	Opens the Jackpot History popup.
+	EXIT
+	Exit the game.
+	
+
+Popup History
+The data is presented in a table with five columns: Session, Time, Bet, Win/Loss and Details. Each row represents a single round of play.
+Key Column Definitions:
+      * Session: ID number of play session.
+      * Time: Time when the player starts the session (place the bet and play).
+      * Bet: The stake that the player places for the session.
+      * Win/Loss: Displays the amount won or the amount lost for the corresponding bet.
+      * Win: Displayed as a green amount with a "+" prefix, representing the total payout, including both the original bet amount and the winnings.
+      * Lose: Displayed as a red amount with a "-" prefix, representing the bet amount lost.
+      * Details: will be displayed as a “Details” button that allows users to view the detailed information of the session.
+      * Sessions that achieve a Bonus win will have a Yellow orb attached to the corner of the Detail button.
+      * Sessions that win the Jackpot will have a Red orb attached to the corner.
+Visual Indicators:
+      * Green text is used for the Total Win in winning rounds.
+      * Red text is used in losing rounds.
+History Detail
+      * A popup that displays the detailed Step-by-Step progression of the session. 
+      * The popup contains 2 information sections:
+      * Session summary information: Bet, Win, Bonus, Jackpot, Profit.
+      * Win: Displays the total winnings earned from the Normal Multiplier.
+      * Bonus: Displays the total winnings earned from Bonus Multiplier.
+      * Jackpot: Displays the total winnings earned from the Jackpot.
+      * Profit: Displays the total winnings, calculated as the sum of Win, Bonus, and Jackpot rewards. The original bet amount is not included.
+      * Detailed Step information: Step, Multiplier, Bonus, Jackpot, Result.
+      * The Summary section shows the total amount won for each category during the session, with each reward type clearly displayed.
+      * The Detail section shows the Multiplier won at each Step movement, the Bonus Multiplier won, and for Jackpot, the exact winning amount.
+The Result column displays “Win” for each successful Step. If the player hits an empty tile, it will display “Crash”, and all accumulated winning multipliers will be reset to 0x.
+Jackpot History                                                                        
+         * When any player wins a Jackpot, a toast notification will appear on the Main Screen, overlaying the Jackpot UI area for 2 seconds before fading out.
+         * A Side Notification (SideNoti) is displayed whenever a player wins the Jackpot. The notification remains visible for 2 seconds before automatically disappearing.
+         * Do not display the Side Notification while the player is currently playing the Total Win or Jackpot win animation.
+         * The toast will contain the User Name, text "Win Jackpot", and the total amount won by that User.
+         * To view the Jackpot win history, players can click the Jackpot icon in the Menu or directly click the Jackpot UI to open the Jackpot History Popup.
+The Jackpot History will contain 5 information fields: Time - Honors - Total Bet - Diff - Jackpot Win
+         * Time: Displayed in the format of DD/MM on the first row and HH:MM:SS on the second row.
+         * Honor: Displays the list of players who won the Jackpot. The maximum display length is 15 characters. If the name exceeds 15 characters, it will be shortened to 12 characters followed by "...".
+         * Bet: Displays the Bet Amount of the User who won the Jackpot. Decimal values will be truncated (e.g., $0.200 will be displayed as $0.2). 
+         * Diff: Displays the User's selected difficulty when achieving the Jackpot.
+         * Jackpot Win: Indicates the overall sum awarded to the player, presented to maximum three decimal digits without rounding down.
+
+
+Multiplier Bar
+The Multiplier Bar visually represents the current multiplier level for the round. Its design should be integrated above the board, utilizing a thematic style (e.g., scroll, calligraphy text).
+Functionality and Movement:
+         * It begins at the first level and advances to the right as each new multiplier level is achieved.
+         * The bar slides to the left to reveal subsequent levels once it reaches the center position.
+         * It moves one notch right with each level achievement until it reaches the final, maximum level.
+         * The final multiplier level has a distinct appearance and is visible from the start.
+         * When the game begins, level 1 is immediately in the 'Next' state.
+Multiplier Level States and Appearance:
+         * Locked: (e.g., sunken, no bright fill, etc.)
+         * Next: (Similar to Locked, but with an additional CTA VFX for the next level.)
+         * Current: (Scale-up size, bright fill and color, has prominent VFX.)
+         * Achieved: (Filled with color, no VFX.)
+Visual Feedback for Progression:
+         * Current Multiplier: Is larger, changes color, and has a supporting VFX.
+         * Next Multiplier: Has an additional Call-to-Action (CTA) VFX.
+  
+
+Difficulties
+You can select the number of empty tiles in the board by pressing the button, the number will cycle from Easy > Normal > Hard then back to Easy. This choice determines the difficulty level and affects the reward values (Multiplier and Bonus reward).
+The available options are:
+         * Easy: 1 empty tile.
+         * Normal: 2 empty tiles.
+         * Hard: 3 empty tiles.
+“Start”/ “Cash out” Button
+The game is controlled by a single button that changes its function based on the current state:
+         * Before a round: The button displays "Start" and initiates a new round of play.
+         * While in a round: The button displays "Cash Out" and allows the player to end the round.
+“Random Pick” Button
+The “Difficulty select” button will change into the “Random Pick” button when the round starts.
+This button allows players to automatically reveal a random unrevealed tile on the board.
+         * Clicking the button randomly selects one unrevealed tile on the grid and opens it automatically.
+         * Players can click this button multiple times consecutively, a maximum of 2 tiles at a time. The system will queue and sequentially reveal the corresponding number of tiles one by one in the order they were triggered.
+         * Chain Interruption: If multiple clicks are queued and a Crash tile is triggered during the sequential revealing process, all subsequent pending reveals are cancelled immediately, and the game ends in a loss.
+Network Status
+
+
+The network status frame is intended for integration into the screen's background (BG). It provides the following information:
+         * Ping: Indicates the player's current network connection status. The text color matches the color of the Wi-Fi icon.
+         * Online Users: Shows the number of players currently active in the game. It will refresh every 30 seconds.
+         * Session Number: Displays the main user's current session number.
+         * This number is visible only during an active round of play.
+         * When a round is not in progress, "..." will be displayed instead.
+         * Format: # + “Last 7 numbers of the string session number”.
+________________
+Win Result Popup
+When a user successfully cashes out during gameplay, a popup is displayed to show the final reward result. 
+There are several win tiers :
+> Win: Total Multiplier < 10x
+> Big Win: Total Multiplier >= 10x
+> Mega Win: Total Multiplier >= 30x
+> Super Win: Total Multiplier >= 50x
+
+
+
+
+FEATURES
+BONUS & JACKPOT
+Bonus Mechanic (Jade Combinations)
+         * Uncovering tiles grants players a chance to discover the mythical Sacred Jade belonging to the Divine Beasts.
+         * Everytime user collects a Jade, it will appear on the Stone Plate, which is the Progress tracker for users.
+         * The Plate displays 8 different combinations that can be made from collect Jades.
+         * Each combination is unique and fixed by design, and will not change during rounds.
+         * If one Jade is included in more than one combination, it will appear in all those combinations simultaneously.
+         * A maximum pool of 8 Jades is available per session, evenly split with 2 Jades per Beast in matching color schemes.
+         * Jade spawn rates are dynamically determined by system formulas every round, guaranteeing a minimum baseline of 4 Jades (1 per Beast).
+         * There are 9 different Jades in total and 8 combinations to make.
+         * Individual Jades do not possess inherent standalone multiplier amounts.
+         * Unearthing Jades and making a combination awards an additional multiplier payout tier based directly on the total combos during that active session.
+         * Acquired bonus multiplier values do not accumulate or stack.
+         * Gathering all 8 Jades combinations unlocks the opportunity to trigger the ultimate Jackpot prize.
+         * The bonus multiplier will be added directly to the main multiplier when users manage to cash out their winnings.
+
+
+
+
+
+Bonus Multiplier sets:
+
+
+Numbers of Jade Combination
+	Reward (multiplier)
+	Easy
+	Normal
+	Hard
+	1
+	0.25x
+	0.36x
+	1x
+	2
+	0.50x
+	0.7x
+	1.8x
+	3
+	0.75x
+	2x
+	5x
+	4
+	1x
+	3x
+	10x
+	5
+	1.6x
+	7x
+	20x
+	6
+	3x
+	11x
+	30x
+	7
+	4x
+	23x
+	60x
+	8
+	5x
+	35x
+	90x
+	* Reference values need to be configured with the GC.
+
+
+         * Below are the 8 combinations, with the exact colors for jades. Shapes and sizes will be designed based on the theme.
+  
+
+         * Details for each Jade:
+         * 4 Jades with 1 single color, each color represents a specific beast: Red (Phoenix), Blue (Dragon), Green (Turtle), Yellow (Lion).
+         * 4 Jades with a combination of 2 colors: Red/Blue, Blue/Yellow, Yellow/Green, Green/Red.
+         * 1 Jade with a combination of all 4 colors.
+
+
+Jackpot Reward Trigger:
+         * Upon completing all 8 Jade Combinations and cashing out, the user has a small chance to win a JP reward.
+         * The main UI will feature a status of completing all Jade Combinations. Upon the users having completed all Jade Combinations and successfully cashed out, an animation of four beasts channeling power to open a portal.
+         * After the portal opens, a treasure chest will appear behind it. The chest will play an animation as it flies to the center of the screen and opens.
+         * If the Jackpot is triggered, a Jackpot popup will be displayed (an opened treasure chest with “Jackpot” text and the winning amount). If there is no Jackpot, a standard “You Won” popup will be shown.
+Jackpot Value:
+         * Each bet size has its own dedicated Jackpot.
+         * 10 bet sizes result in 10 separate Jackpot pools.
+
+
+
+
+Size Bet
+	Init Jackpot (size bet*50)
+	Progressive
+	$0.2
+	$10.00
+	1%
+	$0.4
+	$20.00
+	1%
+	$0.8
+	$40.00
+	1%
+	$1.00
+	$50.00
+	1%
+	$2.00
+	$100.00
+	1%
+	$5.00
+	$250.00
+	1%
+	$10.00
+	$500.00
+	1%
+	$20.00
+	$1000.00
+	1%
+	$50.00
+	$2500.00
+	1%
+	$100.00
+	$5000.00
+	1%
+	
+
+         * The game offers 3 difficulty levels for each bet size (Easy, Normal, and Hard).
+         * All three difficulty levels share the same Jackpot pool for a given bet size. For example, if the selected bet size is $100, then Easy, Normal, and Hard will all use the same Jackpot pool, which is currently valued at $5,000.
+         * Players betting on either $100 Easy or $100 Hard contribute 1% of their $100 bet amount to the same Progressive Jackpot pool.
+         * Example:
+  
+
+         * The Progressive Jackpot contribution is tracked separately for each bet size. For example, when a player bets at the $100 bet size, the 1% Progressive contribution is $1 added only to the Jackpot pool. No contribution is added to Jackpot pools of other bet sizes.
+         * When a player changes the bet size, the displayed Jackpot automatically switches to the Jackpot pool associated with the selected bet size.
+         * Difficulty levels do not affect the Progressive Jackpot value. Instead, higher difficulty levels provide additional Jackpot bonus reward.
+
+
+Difficulty
+	base reward
+	Bonus Reward
+	Easy
+	Progressive + Init Jackpot
+	Init Jackpot * 0
+	Normal
+	Progressive + Init Jackpot
+	Init Jackpot * 3
+	Hard
+	Progressive + Init Jackpot
+	Init Jackpot * 6
+	
+
+
+
+         * Example:
+         * The $100 bet size has an initial Jackpot value of $5,000. After 100 game sessions, the displayed Jackpot value increases to $5,100. ($100 progressive + $5000 init Jackpot).
+         * Players will see the same displayed Jackpot value of $5,100 across Easy, Normal, and Hard. However, Normal and Hard include visual indicators showing that they provide larger total rewards through additional Instant Cash bonuses.
+
+
+         * This means that if a player wins the Jackpot on Hard, they will receive the current Jackpot value of $5,100 plus an additional Jackpot bonus reward equal to 6x the Initial Jackpot value of $5,000. 
+         * For example, on Normal (3x Init Jackpot), player open 9 tile and make 8 Jade Combinations and cash out, the total win would be:
+Total Win = (Amount Bet * Current Normal) + (Amount Bet * Current Bonus) + Jackpot
+Jackpot = $100 (Progressive) + $5000 init + $15,000 (bonus reward) = $20,100
+Total Win = ($100 * 4.14) + ($100 * 40) + $20,100 = $414 + $4000 + $20,100 = $24,514
+         * Once the player collects all 8 Jade Combinations (before Cash Out), the corresponding Init Bonus (×3 / ×6) indicator will start flashing, and the displayed Jackpot amount will be updated to include the additional Init Bonus. The UI should immediately display the final Jackpot value after the bonus is applied, allowing the player to clearly see the total potential Jackpot reward.
+         * If the player successfully Cashes Out and wins the Jackpot, they will receive the displayed Jackpot amount. If the player Crashes or Cashes Out without winning the Jackpot, the displayed Jackpot amount will be reset to its original value (before the Init Bonus was applied) at the start of the next game session.
+         * The Jackpot hit frequency can be calculated independently for Easy, Normal, and Hard. Since the additional Instant Cash reward is fixed, we only need to adjust the Jackpot win rate for each difficulty level. Based on the configured win rate, we can estimate the expected Progressive Jackpot value at which the Jackpot is likely to be won.
+AUTOPLAY MODE
+The player can enable Auto-play mode, where the game runs automatically based on pre-set configurations Auto Mode Configuration
+
+
+The player must define the following settings before starting Auto Mode:
+         * Bet Size: The bet size is fixed based on the currently selected bet and cannot be changed while Auto Mode is active.
+         * Difficulty: Specifies the difficulty of automatic rounds to be played.
+         * Number of Auto Rounds: Specifies the total number of automatic rounds to be played.
+         * Number of Empty Tiles Each Round: Defines the number of empty tiles present in each auto-play round.
+         * Auto-Select Tiles: Specifies the number of the tiles/cells that the game will automatically select in each round.
+         * Selection Requirement: At least one tile must be selected to initiate Auto Mode, the number will start as 1 when users first open the mode. By pressing the button to select, the value will increase or decrease by 1 tile. Users can hold the button or scroll for fast selection.
+         * Selection Limit: The maximum number of selectable tiles is based on the difficulty for the round. (Ex: you can only select up to 13 out of 16 tiles when setting Hard difficulty)
+         * Limit Handling: If the number of Crash tiles increases after the maximum tile selection limit has been reached, the last selected tile will be automatically deselected.
+         * Reset Option: A "Reset" button is available to deselect all tiles, resetting the selected tile back to 1. It is enabled when the number of selected tiles are from 2 or more.
+         * Selection Order: The tiles will be selected in the random order for each round when Autoplay runs.
+  
+
+Winning Chance Display
+
+
+A label displays the calculated Winning Chance, which dynamically updates according to the current game setup (bombs and auto-selected tiles).
+         * Example: For a setup of 3 bombs and 1 auto-selected tile, the winning chance is displayed as 79.62%.
+         * Formatting: The displayed value is rounded to a maximum of two decimal places (e.g., 4.567% is displayed as 4.57%).
+         * The Winning Chance formula is calculated as follows:
+         * N = Total number of tiles
+         * J = Total number of bombs
+         * N - J = Total number of safe tiles
+         * Step k = Winning Chance of successfully reaching step k
+  
+
+         * If the player has not selected a betting tile, the Winning Chance will be displayed as "---".
+Starting and Stopping Auto Mode
+         * Start: After configuring all settings, press the "Start" button to begin Auto Mode with the first automatic round.
+         * Stopping: Auto Mode will stop at the conclusion of the current round.
+Early Cash Out in Auto Mode
+
+
+Even when in Auto Mode, the player can choose to Cash Out earlier than the pre-set auto-selection.
+         * Effect: An Early Cash Out ends the current round immediately, and the game proceeds to the next scheduled auto-round.
+         * Example: If the player sets up 6 auto-selected tiles but cashes out after the game plays 3 tiles, the current round ends, and the next auto-round begins immediately.
+POWER MODE
+         * Instant Resolution: Once activated alongside the Auto-play settings, this mode bypasses the standard animations to deliver final round results immediately.
+         * High-Efficiency Gameplay: Designed for players seeking maximum speed, allowing multiple rounds to be processed in seconds without the need to monitor the live gameplay.
+         * Seamless Integration: Works in tandem with pre-set Auto-Cashout limits, providing a streamlined and data-efficient experience for rapid-fire sessions.
+Setup Steps
+         1. Adjust Auto-Play Parameters: Set the base stake and determine the total number of rounds for automation.
+         2. Mandatory Auto-Cashout: Configure the number of tiles to be opened; this is a mandatory requirement for Power Mode to function.
+         3. Toggle Power Mode: Switch the feature to ON to initiate immediate round resolutions.
+         4. Begin Session: Tap "Start" to execute the automated cycles and view instant outcomes.
+         5. Popup Confirm: After pressing "Start", a Popup will appear for the player to confirm the information. The Popup will display the current configurations set by the player, including: Number of Rounds - Number of tiles to open - Difficulty - Bet Amount. Once the player confirms, Power Mode will be activated.
+
+
+
+
+Operation
+         * Round Tracker: Monitors the session progress by updating the count as each automated cycle concludes.
+         * Cashout Target: Adjust the number of tiles required to open. Once the configured number of tiles has been successfully opened, the game will automatically trigger a Cashout.
+         * Real-Time Multiplier Feed: Updates instantly to show round results through various transitions:
+         * Progress Tracker: A condensed visualization of the active round, illustrating the player's real-time advancement through the session.
+         * Sequential Activation: The selected Tiles will be revealed simultaneously. If at least one Crash tile is revealed among the opened Tiles, the session will result in a Lose. If all revealed Tiles do not contain a Crash tile, the player will achieve a Win.
+         * Payout Multiplier: Displays the winning Multiplier obtained at that Step.
+         * Bonus: Displays the Multiplier value gained from the number of collected Jade Combinations.
+         * Consistent Win Feedback: Should the result remain identical across rounds, a "Flash Animation" confirms the win
+         * Performance Indicators: Provides a live tally of total successful cashouts ("Wins") versus losses ("Crashes").
+Instant Termination: A dedicated "Stop" button is available for players to cancel the session at any moment.
+
+
+
+
+Step-by-Step Flow
+         1. Upon initiating the session, the cycle count progresses linearly from the first round toward the designated limit.
+         2. In the Power Mode Playing Popup, at each round, all tiles will be revealed within 1 second to instantly display the results. When transitioning to a new round, all tiles will flip back face-down, then the new round will begin and continue by revealing all tile results again within 1 second.
+         3. Successful completion of a movement increment results in a corresponding boost to the current payout level.
+         4. The session terminates under these conditions:
+         1. Victory: If all tiles are revealed and none of the selected tiles contain Crash tile, the round is considered a win. Upon winning, the multiplier value will fade in and fade out over 0.5 seconds before proceeding to the next round.
+         2. Loss: Encountering a crash before the target increment is achieved halts the cycle and adds to the loss tally.
+         5. Following round completion, the subsequent cycle initiates after a 0.5-second delay, with values resetting to zero.
+         6. If the player triggers a manual stop during a cycle, the current round will be completed and Power Mode will immediately terminate afterward.
+         7. A session summary popup appears instantly once the stop command is executed.
+  
+
+Power Mode Result
+         * A summary overlay is presented upon the conclusion of all automated rounds or a manual intervention.
+
+
+         * This results screen highlights essential data, including the total accumulated prize across all completed sessions.
+         * Players are then prompted with two options: exit the mode entirely or resume automation using the existing settings.
+         * The total number of Jade Combinations completed will also be included in the total win count.
+  
+
+PROMOTION
+A promotion is a gift from the publisher to the player, offering a set number of free rounds with a predetermined bet value.
+
+
+Promotion Rounds
+         * Cost: Do not deduct the bet amount from the player's account.
+         * Functionality: Operate the same as standard rounds (e.g., manual play, auto-play).
+         * Visibility: Included in the bet history.
+         * Validity: Have an expiration date set by the publisher.
+Promotion Claim and Notification
+         * Popup Notification (Standard): "You have been gifted {1} free plays (bet amount {2})"
+         * Popup Notification (Daily): "You have been gifted {1} daily free plays (bet amount {2})"
+Claim Flows
+         * Offline Claim: Player enters the game to Notification popup is displayed to Player presses 'Confirm' to In-game screen appears with free rounds ready.
+         * Online Claim: Player completes the current round (if one is in progress) to Notification popup is displayed to Player presses 'Confirm' to In-game screen appears with free rounds ready.
+In-Game Status when Promotion is Active
+         * Start Button: The 'Start' (bet) button displays the number of remaining free rounds instead of the standard text.
+         * Betting Field: Shows the value of the free round. Players cannot change the bet size while a promotion is active.
+         * Activating Autoplay with Promotions: Players may engage autoplay even while a promotion is active. During this, any promotional free plays are processed as standard turns. Should the configured number of auto rounds exceed the available free plays, the system will seamlessly transition into regular autoplay rounds using the player's balance until the session is manually terminated.
+
+
+COMMON BEHAVIOR (INACTIVITY):
+AFK from Session Start (Step 0)
+         * If the player starts a session but does not reveal any tile within 60 seconds, a warning toast will appear and flash 2 - 3 times prompting them to take action at the second of 40th, accompanied by a 10-second countdown after that (warning that a random tile will be revealed otherwise).
+         * Once the 10-second countdown ends, the game will automatically reveal a random tile.
+         * Toast Content:
+AFK from Step 1 Onwards
+         * If the player is at any step other than Step 0 and does not reveal another tile within 60 seconds, a warning toast will appear and flash 2 - 3 times prompting them to take action at the second of 40th, accompanied by a 10-second countdown after that (warning that a random tile will be revealed otherwise).
+         * Once the 10-second countdown ends, the game will automatically cash out at the current step, collect the corresponding multiplier, and end the session.
+         * Toast Content:
+Reconnection & Resume Logic
+         * Resuming in less than 60 seconds (reconnect / switch tab / minimize / login on another device): The inactivity timer will reset.
+         * Resuming after 60 seconds:
+         * At Step 0: The game will automatically execute a random tile reveal.
+         * From Step 1 onwards: The game will automatically execute an auto-cashout.
+TUTORIAL
+         * The tutorial is used to teach players how to play the game and also to introduce the Autoplay mode.
+         * Wireframe and content are presented in the link below.
+         * Tutorial will be in the Help info popup, so players can choose to watch it again if they need.
+         * Tutorial is disabled when the game is in the playing session.
+         * Autoplay mode tutorial steps will automatically skip if the user is afk for a period of time.
+HELP INFO

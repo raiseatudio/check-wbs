@@ -1,0 +1,76 @@
+TEMPLATE WBS,,,,,,,,,
+,,,,,,,,,
+Link feedback,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
+STT,TASK TITLE,ASSIGNEE,START DATE,END DATE,ESTIMATE TIME (Day),ACTUAL TIME (Day),STATUS,Definition of Done,NOTE
+A,INIT,,,,,,,,
+I,Create WBS,,,,,,IN-PROGRESS,"tạo danh sách các task chia nhỏ cho dự án, xác định DoD cho các task",
+II,Setup,,,,,,,,
+1,Clone Project,,4/11/2026,11/4/2026,,,DONE,,
+2,Setup Project,,11/5/2026,11/6/2026,,4h,IN-PROGRESS,"- Nhóm các asset cũ(images, fonts, spines) sang thư mục Old.
+- Sửa tên các scenes(Loading và Main)",
+B,PHASE 1: MVP BUILD (CORE LOGIC & NETWORK),,,,,,,,
+I,Game Network,,,,,,,,
+1,Game Network & Data Parser,,,,,,TO DO,"- Khởi tạo GameNetwork đăng ký đủ packet: Join, Bet, Action/Open, Cashout, ForceEnd.
+- Parse chính xác payload từ server thành DataStore (PlayerInfo, RoundData).
+- Bắt lỗi timeout/rớt socket và show log rõ ràng.",
+2,BE Contract Integration,,,,,,TO DO,"- Khai báo và map đủ 100% Command ID khớp tài liệu Contract BE.
+- Request gửi đi và Response nhận về đúng kiểu dữ liệu (không lỗi undefined/NaN ở các trường tiền, tỉ lệ, ID).
+- Bắt đúng danh mục Error Codes từ BE để hiển thị đúng Toast/Dialog lỗi tương ứng.
+- Log request/response rõ ràng hỗ trợ đối soát DEV/STG.",
+II,Game Logic,,,,,,,,
+1,Core Game Loop (State Machine),,,,,,TO DO,"- Vòng lặp State chuyển đúng chuẩn: INIT→BETTING→PLAYING →RESULT/POWERMODE.
+- Nhận đúng các event chuyển state giữa Controller và View, không leak state.",
+2,Betting Logic	,,,,,,TO DO,"- Gửi request Bet thành công, trừ pending wallet đúng số tiền.
+- Chặn cược khi số dư ví < bet value, chặn spam click.",
+C,PHASE 2: 1ST BUILD (STATIC UI & MAIN FEATURES),,,,,,,,
+I,Loading scene,,,,,,,,
+1,LoadingUI ,,,,,,TO DO,"- Layout đúng Logo và Background art game mới.
+- Thanh progress bar hiển thị nạp tài nguyên từ 0% đến 100%, tự động chuyển sang Main.scene khi nạp xong và kết nối socket thành công.",
+II,Game Scene,,,,,,,,
+10,AutoPlay,,,,,,TO DO,"- Ráp đúng layout popup Auto Play.
+- Ráp đúng lưới 16 ô chọn trước, nút Confirm, Clear, và nút ButtonStopAuto.
+",
+11,PowerMode UI,,,,,,TO DO,"- Ráp đúng layout popup PowerMode
+- Ráp toggle TogglePowerMode và popup ConfirmPowerMode",
+12,Promotion,,,,,,TO DO,- Hiển thị đúng tag số lượt Free Bet còn lại nằm trên nút cược.,
+III,Popup,,,,,,,,
+1,PopupSetting,,,,,,TO DO,"- Bật/tắt BGM và SFX độc lập.
+- Các nút điều hướng (HelpInfo, Bet History, Jackpot History, Exit) click mở đúng popup tương ứng.",
+2,PopupHistory,,,,,,TO DO,"- Danh sách lịch sử cược phân trang, xem chi tiết lsc.
+- Bấm vào 1 dòng xem được chi tiết ván cược (các ô đã mở, tiền cược, tiền thắng)",
+3,PopupJackpotHistory,,,,,,TO DO,- Danh sách lịch sử jackpot phân trang chuẩn API.,
+4,PopupHelpInfo,,,,,,TO DO,"- Đầy đủ các trang luật chơi, vuốt/chuyển tab mượt.",
+5,PopupPromotion,,,,,,TO DO,"- Hiển thị đúng 2 template text Standard/Daily
+- Ráp nhãn đếm số lượt free plays còn lại (labelRemainPromo) trên nút cược BtnPlay.",
+6,Dialog,,,,,,TO DO,"- Dialog lỗi hệ thống (mất kết nối, force exit) có callback nút bấm chuẩn.",
+7,Toast,,,,,,TO DO,"- Toast thông báo đúng trạng thái (mất mạng, cược lỗi...)",
+D,"PHASE 3: ADVANCED LOGIC & FULL BUILD (ANIMATION, VFX)",,,,,,,,
+I,ADVANCED LOGIC,,,,,,,,
+1,AutoPlay Logic,,,,,,TO DO,"- Nhận danh sách các ô đã chọn từ popup Auto Play→ tự động mở ô tuần tự không cần click tay.
+- Mở đủ số ô đã cấu hình→ tự động kích hoạt Cash out nhận tiền.
+- Bấm nút ButtonStopAuto ngoài bàn chơi → dừng auto ngay sau ván hiện tại.",
+2,PowerMode Logic,,,,,,TO DO,"- Nhận và xử lý mở hàng loạt ô đã chọn từ popup Auto Play.
+- Hiển thị đúng tổng kết số tiền thắng trên popup PopupPowerModeResult khi kết thúc hoặc bấm nút Stop.",
+2, Promotion Flow Logic,,,,,,TO DO,"- Offline Claim (vào game hiện popup) & Online Claim (xong ván hiện tại mới hiện popup).
+- Bấm Confirm → kích hoạt cược không trừ tiền ví, khóa nút +/-.
+- Hết lượt tự động mở khóa nút cược và quay về ví thật; lưu đúng tag vào Bet History.",
+3,Reconnect & Resume Logic        ,,,,,,TO DO,"- F5 hoặc reload trang khôi phục đúng ván đang chơi dở (đúng số ô đang mở, hệ số nhân, tiền thắng hiện tại).
+- Ẩn tab (hidden tab) > 60s quay lại không bị kẹt game, tự đồng bộ lại session từ server.
+- Ván kết thúc lúc mất mạng thì khi reconnect tự nhảy về màn Result.",
+4,BO Integration (Bet & Jackpot History API),,,,,,TO DO,"- Kết nối đúng REST API BO theo Auth token, URL param và môi trường (DEV/STG/PROD).
+- Phân trang chuẩn, format đúng ngày giờ, tiền tệ, tag Promotion.
+- Bấm vào dòng lịch sử cược mở ra đúng chi tiết ván.
+- Hiển thị đúng trạng thái Loading, Empty state (""Không có dữ liệu""), khi lỗi mạng hoặc request timeout tự ngắt loading sau timeout (4s), không làm treo đơ popup và vẫn cho phép đóng popup bình thường.",
+5,Exit Game & Lifecycle Cleanup,,,,,,TO DO,"- Bắt đúng sự kiện thoát về Portal / đóng game: Dừng toàn bộ các Tween đang chạy (Tween.stopAllByTarget), hủy các hàm đếm thời gian.
+- Thoát về Portal hoặc chuyển màn hình mượt mà, không crash game.",
+E,PHASE 4: SOUND & FINAL BUILD,,,,,,,,
+I,Sound,,,,,,,,
+1,Apply SFXs,,,,,,TO DO,"- Tích hợp đầy đủ BGM nền và SFX: click nút, Mascot, mở ô, cashout, thua, auto, nổ hũ.
+- Mute/Unmute đúng cài đặt.",
+2,Multi-Platform Build Setup (Iframe / App / WebApp),,,,,,TO DO,"- Iframe: parse chuẩn query params (token, env, lang, currency).
+- WebApp & Mobile: Xử lý responsive fit tỉ lệ màn hình, né tai thỏ (safe-area), hiển thị overlay nhắc xoay ngang thiết bị khi cầm dọc.",
+3,Platform Optimization,,,,,,TO DO,"- Game chạy mượt mà, khung hình ổn định, không bị giật/khựng khi kích hoạt hiệu ứng hay mở popup.
+- Tối ưu dung lượng gói tải (build size) giúp vào game nhanh.
+- Optimize draw call và auto atlas.",
