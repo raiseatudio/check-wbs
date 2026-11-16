@@ -26,16 +26,16 @@ Sửa [`SKILL.md`](SKILL.md) khi đổi tiêu chí. Prompt của Action chỉ y�
 Trong repo trên GitHub:
 
 1. Vào Settings → Secrets and variables → Actions → New repository secret.
-2. Tên: `OPENAI_API_KEY`. Giá trị là API key của OpenAI.
-3. Tùy chọn: thêm biến `OPENAI_MODEL`. Nếu bỏ trống, Action dùng `gpt-4.1`.
+2. Tên: `GEMINI_API_KEY`. Giá trị là auth key tạo trong Google AI Studio. Không dán key vào file trong repo.
+3. Tùy chọn: thêm biến `GEMINI_MODEL`. Nếu bỏ trống, Action dùng `gemini-3.5-flash`.
 
-Nội dung bảng được gửi tới OpenAI.
+Nội dung bảng được gửi tới Gemini. Key gửi qua header `x-goog-api-key`.
 
 ## Khi nào chạy
 
 Workflow chạy trên pull request (`opened`, `synchronize`, `reopened`) khi đổi CSV, TSV, file bảng tính, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
 
-Job test kiểm tra cách phân loại đường dẫn. Job review chỉ gọi OpenAI khi secret có giá trị. Pull request từ fork không có secret này nên bước review được bỏ qua.
+Job test kiểm tra cách phân loại đường dẫn. Job review chỉ gọi Gemini khi secret có giá trị. Pull request từ fork không có secret này nên bước review được bỏ qua.
 
 ## Đọc kết quả
 

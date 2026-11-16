@@ -1,4 +1,4 @@
-"""Đọc WBS và GDD, gọi OpenAI theo SKILL.md, rồi ghi nhận xét lên pull request."""
+"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi ghi nhận xét lên pull request."""
 
 from __future__ import annotations
 
@@ -13,8 +13,10 @@ from pathlib import Path
 MAX_CHARS = 120_000
 MAX_COMMENT = 65_000
 MARKER = "<!-- check-wbs -->"
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-DEFAULT_MODEL = "gpt-4.1"
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+DEFAULT_MODEL = "gemini-3.5-flash"
 SUPPORTED_EXT = {".csv", ".tsv"}
 SPREADSHEET_EXT = SUPPORTED_EXT | {".xlsx", ".xls", ".xlsm", ".ods"}
 SKIP_DIRS = {".git", ".hg", ".svn", "__pycache__", ".venv", "venv"}
@@ -327,20 +329,20 @@ def publish(body: str, root: Path, inventory: Inventory) -> None:
     upsert_comment(token, repository, pr_number, comment)
 
 
-def call_openai(api_key: str, model: str, user_prompt: str) -> str:
+def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    if not model or any(char not in allowed for char in model):
+        raise RuntimeError(f"Tên model Gemini không hợp lệ: {model}")
     payload = {
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": 0.2},
     }
     request = urllib.request.Request(
-        OPENAI_URL,
+        GEMINI_URL.format(model=model),
         data=json.dumps(payload).encode("utf-8"),
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "x-goog-api-key": api_key,
             "Content-Type": "application/json",
         },
         method="POST",
@@ -350,15 +352,21 @@ def call_openai(api_key: str, model: str, user_prompt: str) -> str:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"OpenAI trả về HTTP {exc.code}: {detail}") from exc
+        raise RuntimeError(f"Gemini trả về HTTP {exc.code}: {detail}") from exc
     data = json.loads(raw)
-    try:
-        content = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("OpenAI không trả về nội dung review.") from exc
-    if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("OpenAI trả về nội dung review rỗng.")
-    return content.strip()
+    candidates = data.get("candidates") if isinstance(data, dict) else None
+    if not candidates:
+        raise RuntimeError("Gemini không trả về nội dung review.")
+    parts = candidates[0].get("content", {}).get("parts", [])
+    texts = [
+        part.get("text", "")
+        for part in parts
+        if isinstance(part, dict) and isinstance(part.get("text"), str)
+    ]
+    content = "".join(texts).strip()
+    if not content:
+        raise RuntimeError("Gemini trả về nội dung review rỗng.")
+    return content
 
 
 def repo_root() -> Path:
@@ -388,12 +396,12 @@ def run() -> int:
         publish("SKILL.md đang trống. Hãy điền bộ luật review trước khi chạy.", root, inventory)
         return 1
 
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        publish("Thiếu secret OPENAI_API_KEY. Không gọi OpenAI.", root, inventory)
+        publish("Thiếu secret GEMINI_API_KEY. Không gọi Gemini.", root, inventory)
         return 1
-    model = os.environ.get("OPENAI_MODEL", "").strip() or DEFAULT_MODEL
-    report = call_openai(api_key, model, build_user_prompt(skill, root, inventory))
+    model = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
+    report = call_gemini(api_key, model, build_user_prompt(skill, root, inventory))
     publish(report, root, inventory)
     return 0
 

@@ -49,19 +49,19 @@ jobs:
       - name: Kiểm tra secret
         id: key
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if [ -n "$OPENAI_API_KEY" ]; then
+          if [ -n "$GEMINI_API_KEY" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "Thiếu secret OPENAI_API_KEY. Không gọi OpenAI." >> "$GITHUB_STEP_SUMMARY"
+            echo "Thiếu secret GEMINI_API_KEY. Không gọi Gemini." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Review WBS
         if: steps.key.outputs.present == 'true'
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
