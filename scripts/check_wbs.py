@@ -7,8 +7,10 @@ import os
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
 MAX_CHARS = 120_000
 MAX_COMMENT = 65_000
@@ -17,14 +19,18 @@ GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 DEFAULT_MODEL = "gemini-3.5-flash"
-SUPPORTED_EXT = {".csv", ".tsv"}
-SPREADSHEET_EXT = SUPPORTED_EXT | {".xlsx", ".xls", ".xlsm", ".ods"}
+WBS_TABLE_EXT = {".csv", ".tsv"}
+WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
+GDD_TEXT_EXT = {".txt", ".text", ".md", ".markdown", ".docx", ".rtf"}
+GDD_UNSUPPORTED_EXT = WBS_UNSUPPORTED_EXT | {".doc", ".pdf"}
 SKIP_DIRS = {".git", ".hg", ".svn", "__pycache__", ".venv", "venv"}
+DOCX_PARAGRAPH = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"
+DOCX_TEXT = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 SYSTEM_PROMPT = (
     "Bạn là người review WBS. Tuân thủ đúng SKILL.md trong phần người dùng. "
     "Trả lời bằng tiếng Việt, đúng khuôn báo cáo trong SKILL.md. "
     "Không thêm luật nghiệp vụ ngoài SKILL.md. "
-    "Không bịa dòng không có trong bảng."
+    "Không bịa nội dung không có trong file được gửi."
 )
 
 
@@ -33,7 +39,8 @@ def classify_path(path: str) -> str | None:
 
     Trả về "wbs", "gdd", "ambiguous", "unsupported", hoặc None nếu không phải file cần xét.
     Thư mục phải đúng tên "wbs" hoặc "gdd". Tên file khớp khi token đứng riêng,
-    ví dụ WBS_export.csv hoặc my-gdd.tsv. mywbs.csv không khớp.
+    ví dụ WBS_export.csv hoặc my-gdd.docx. mywbs.csv không khớp.
+    WBS chỉ nhận CSV/TSV. GDD nhận thêm TXT, MD, DOCX và RTF.
     """
     normalized = path.replace("\\", "/").strip()
     if not normalized or normalized.endswith("/"):
@@ -43,7 +50,7 @@ def classify_path(path: str) -> str | None:
         return None
     filename = parts[-1]
     suffix = Path(filename).suffix.lower()
-    if suffix not in SPREADSHEET_EXT:
+    if suffix not in _known_extensions():
         return None
 
     kinds: set[str] = set()
@@ -62,9 +69,21 @@ def classify_path(path: str) -> str | None:
         return None
     if len(kinds) > 1:
         return "ambiguous"
-    if suffix not in SUPPORTED_EXT:
+    if "wbs" in kinds:
+        if suffix in WBS_TABLE_EXT:
+            return "wbs"
+        if suffix in WBS_UNSUPPORTED_EXT:
+            return "unsupported"
+        return None
+    if suffix in WBS_TABLE_EXT or suffix in GDD_TEXT_EXT:
+        return "gdd"
+    if suffix in GDD_UNSUPPORTED_EXT:
         return "unsupported"
-    return "wbs" if "wbs" in kinds else "gdd"
+    return None
+
+
+def _known_extensions() -> set[str]:
+    return WBS_TABLE_EXT | WBS_UNSUPPORTED_EXT | GDD_TEXT_EXT | GDD_UNSUPPORTED_EXT
 
 
 def _has_token(filename: str, token: str) -> bool:
@@ -119,25 +138,113 @@ def collect(root: Path) -> Inventory:
 
 
 def read_limited(path: Path) -> tuple[str, int, bool]:
+    text = extract_text(path)
     kept: list[str] = []
     kept_len = 0
     line_count = 0
     truncated = False
-    with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
-        for line in handle:
-            line_count += 1
-            if kept_len >= MAX_CHARS:
-                truncated = True
-                continue
-            room = MAX_CHARS - kept_len
-            if len(line) > room:
-                kept.append(line[:room])
-                kept_len += room
-                truncated = True
-                continue
-            kept.append(line)
-            kept_len += len(line)
+    lines = text.splitlines(keepends=True)
+    if text and not lines:
+        lines = [text]
+    for line in lines:
+        line_count += 1
+        if kept_len >= MAX_CHARS:
+            truncated = True
+            continue
+        room = MAX_CHARS - kept_len
+        if len(line) > room:
+            kept.append(line[:room])
+            kept_len += room
+            truncated = True
+            continue
+        kept.append(line)
+        kept_len += len(line)
     return "".join(kept), line_count, truncated
+
+
+def extract_text(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        return docx_to_text(path)
+    if suffix == ".rtf":
+        raw = path.read_text(encoding="utf-8-sig", errors="replace")
+        return rtf_to_text(raw)
+    return path.read_text(encoding="utf-8-sig", errors="replace")
+
+
+def docx_to_text(path: Path) -> str:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            try:
+                payload = archive.read("word/document.xml")
+            except KeyError as exc:
+                raise RuntimeError(f"Không đọc được {path.name}: thiếu nội dung Word.") from exc
+    except zipfile.BadZipFile as exc:
+        raise RuntimeError(f"Không đọc được {path.name}: file docx hỏng.") from exc
+    try:
+        root = ElementTree.fromstring(payload)
+    except ElementTree.ParseError as exc:
+        raise RuntimeError(f"Không đọc được {path.name}: XML hỏng.") from exc
+    paragraphs = []
+    for paragraph in root.iter(DOCX_PARAGRAPH):
+        paragraphs.append("".join(node.text or "" for node in paragraph.iter(DOCX_TEXT)))
+    return "\n".join(paragraphs)
+
+
+def rtf_to_text(raw: str) -> str:
+    out: list[str] = []
+    index = 0
+    length = len(raw)
+    while index < length:
+        char = raw[index]
+        if char in "{}":
+            index += 1
+            continue
+        if char != "\\":
+            if char not in "\r\n":
+                out.append(char)
+            index += 1
+            continue
+        nxt = raw[index + 1] if index + 1 < length else ""
+        if nxt in "\\{}":
+            out.append(nxt)
+            index += 2
+            continue
+        if nxt == "u" and index + 2 < length and raw[index + 2] in "-0123456789":
+            index += 2
+            sign = 1
+            if raw[index] == "-":
+                sign = -1
+                index += 1
+            number = 0
+            while index < length and raw[index].isdigit():
+                number = number * 10 + int(raw[index])
+                index += 1
+            code = sign * number
+            if code < 0:
+                code += 65536
+            out.append(chr(code))
+            if index < length and raw[index] not in "\\{}":
+                index += 1
+            continue
+        word, index = _rtf_control_word(raw, index)
+        if word in {"par", "line"}:
+            out.append("\n")
+    return "".join(out).strip("\n")
+
+
+def _rtf_control_word(raw: str, index: int) -> tuple[str, int]:
+    cursor = index + 1
+    while cursor < len(raw) and raw[cursor].isalpha():
+        cursor += 1
+    word = raw[index + 1 : cursor]
+    if cursor < len(raw) and raw[cursor] == "-":
+        cursor += 1
+    while cursor < len(raw) and raw[cursor].isdigit():
+        cursor += 1
+    if cursor < len(raw) and raw[cursor] == " ":
+        cursor += 1
+    return word, cursor
 
 
 def fence_for(text: str) -> str:
@@ -167,7 +274,7 @@ def build_user_prompt(skill: str, root: Path, inventory: Inventory) -> str:
     parts = ["# SKILL.md", "", skill.strip(), "", "# Bảng WBS", ""]
     for path in inventory.wbs:
         parts.append(render_file(root, path, "wbs"))
-    parts.append("# Bảng GDD")
+    parts.append("# GDD")
     parts.append("")
     for path in inventory.gdd:
         parts.append(render_file(root, path, "gdd"))
@@ -186,7 +293,10 @@ def skipped_section(root: Path, inventory: Inventory) -> str:
     if inventory.unsupported:
         lines.append("### File không đọc được")
         lines.append("")
-        lines.append("Chỉ nhận CSV hoặc TSV. Hãy export từ Google Sheet.")
+        lines.append(
+            "WBS chỉ nhận CSV hoặc TSV. GDD nhận CSV, TSV, TXT, MD, DOCX hoặc RTF. "
+            "File Excel, PDF, hoặc Word cũ (.doc) hãy export sang các định dạng đó."
+        )
         lines.append("")
         for path in inventory.unsupported:
             lines.append(f"- `{path.relative_to(root).as_posix()}`")
@@ -203,11 +313,13 @@ def guidance(inventory: Inventory) -> str:
     joined = " và ".join(missing)
     return (
         f"Thiếu file {joined} trên commit này.\n\n"
-        "Cần ít nhất một file WBS và một file GDD dạng CSV hoặc TSV:\n"
-        "- Đặt trong thư mục `wbs/` hoặc `gdd/`, hoặc\n"
-        "- Đặt tên file có token `wbs` / `gdd` "
-        "(ví dụ `WBS_export.csv`, `my-gdd.tsv`).\n\n"
-        "File Excel không được đọc. Hãy export CSV hoặc TSV từ Google Sheet."
+        "Cần ít nhất một file WBS và một file GDD.\n"
+        "- WBS là CSV hoặc TSV, đặt trong thư mục `wbs/` hoặc tên file có token `wbs` "
+        "(ví dụ `WBS_export.csv`).\n"
+        "- GDD là CSV, TSV, TXT, MD, DOCX hoặc RTF, đặt trong thư mục `gdd/` "
+        "hoặc tên file có token `gdd` (ví dụ `my-gdd.docx`, `GDD.txt`).\n\n"
+        "File Excel, PDF, hoặc Word cũ (.doc) không được đọc. "
+        "Hãy export WBS sang CSV hoặc TSV, và GDD sang DOCX hoặc TXT."
     )
 
 

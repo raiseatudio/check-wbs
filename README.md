@@ -1,19 +1,21 @@
 # check-wbs
 
-GitHub Action đọc file WBS và GDD (CSV hoặc TSV export từ Google Sheet), đối chiếu với bộ luật trong [`SKILL.md`](SKILL.md), rồi ghi một nhận xét trên pull request.
+GitHub Action đọc file WBS (CSV hoặc TSV) và GDD (CSV, TSV, TXT, MD, DOCX hoặc RTF), đối chiếu với bộ luật trong [`SKILL.md`](SKILL.md), rồi ghi một nhận xét trên pull request.
 
 ## Cách đặt file
 
 Action không cố định tên cột. Chỉ cần phân biệt được đâu là WBS, đâu là GDD:
 
 - Đặt file trong thư mục `wbs/` hoặc `gdd/` (đúng tên thư mục), hoặc
-- Đặt token trong tên file, tách bằng ký tự không phải chữ: `WBS_export.csv`, `my-gdd.tsv`.
+- Đặt token trong tên file, tách bằng ký tự không phải chữ: `WBS_export.csv`, `my-gdd.docx`, `GDD.txt`.
+
+WBS chỉ nhận `.csv` và `.tsv`. GDD nhận thêm `.txt`, `.text`, `.md`, `.markdown`, `.docx`, `.rtf`.
 
 `mywbs.csv` không được nhận vì `wbs` không đứng thành một token. File nằm trong thư mục `my-wbs/` cũng không được nhận nếu tên file không có token.
 
 File khớp cả WBS và GDD (ví dụ `wbs-gdd.csv`, hoặc file trong `wbs/` mà tên có `gdd`) bị bỏ qua và được liệt kê trong comment.
 
-Excel (`.xlsx`, `.xls`, `.xlsm`, `.ods`) không được gửi cho model. Comment nhắc export CSV hoặc TSV từ Google Sheet.
+Excel (`.xlsx`, `.xls`, `.xlsm`, `.ods`), PDF và Word cũ (`.doc`) không được gửi cho model. Comment nhắc export WBS sang CSV hoặc TSV, và GDD sang DOCX hoặc TXT.
 
 Mỗi lần chạy đọc toàn bộ file trên commit của pull request, không chỉ phần vừa sửa. File dài hơn 120.000 ký tự bị cắt; phần gửi cho model ghi rõ số dòng gốc.
 
@@ -33,7 +35,7 @@ Nội dung bảng được gửi tới Gemini. Key gửi qua header `x-goog-api-
 
 ## Khi nào chạy
 
-Workflow chạy trên pull request (`opened`, `synchronize`, `reopened`) khi đổi CSV, TSV, file bảng tính, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
+Workflow chạy trên pull request (`opened`, `synchronize`, `reopened`) khi đổi file WBS, file GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
 
 Job test kiểm tra cách phân loại đường dẫn. Job review chỉ gọi Gemini khi secret có giá trị. Pull request từ fork không có secret này nên bước review được bỏ qua.
 

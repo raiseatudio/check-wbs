@@ -32,8 +32,18 @@ class ClassifyPathTest(unittest.TestCase):
             "gddv2.csv": None,
             "sheet.xlsm": None,
             "my-wbs/file.csv": None,
+            "gdd/design.txt": "gdd",
+            "gdd/design.docx": "gdd",
+            "my-gdd.md": "gdd",
+            "GDD.txt": "gdd",
+            "gdd/spec.rtf": "gdd",
+            "notes/gdd.text": "gdd",
+            "gdd/old.doc": "unsupported",
+            "gdd/spec.pdf": "unsupported",
+            "wbs/notes.txt": None,
             "wbs/readme.md": None,
             "docs/readme.md": None,
+            "notes.txt": None,
         }
         for path, expected in cases.items():
             with self.subTest(path=path):

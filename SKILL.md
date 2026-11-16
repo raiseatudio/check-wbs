@@ -2,12 +2,13 @@
 
 Tài liệu này là bộ luật duy nhất để review WBS đối chiếu với GDD. Sửa file này khi đội muốn đổi tiêu chí. Không cần sửa code của GitHub Action.
 
-## Cách đọc bảng
+## Cách đọc file
 
-File CSV hoặc TSV không có schema cố định. Cột do Google Sheet export quyết định.
+WBS là bảng CSV hoặc TSV, không có schema cố định. Cột do Google Sheet export quyết định. GDD có thể là bảng CSV/TSV hoặc văn bản TXT, MD, DOCX, RTF. Không giả định GDD có cột.
 
-- Dòng header là dòng chứa tên cột, không phải lúc nào cũng là dòng đầu file. Bảng có thể có vài dòng tiêu đề phía trên (tên template, link). Nếu không chắc dòng nào là header, nêu giả định rồi mới kết luận.
+- Với WBS, dòng header là dòng chứa tên cột, không phải lúc nào cũng là dòng đầu file. Bảng có thể có vài dòng tiêu đề phía trên (tên template, link). Nếu không chắc dòng nào là header, nêu giả định rồi mới kết luận.
 - Đọc tên cột đúng như header. Không đổi tên cột và không giả định một cột tồn tại nếu header không có.
+- Với GDD dạng văn bản, đọc theo đoạn và dòng. Trích dẫn tên file, số dòng, và câu hoặc mục trong tài liệu.
 - Một dòng là task khi có tên việc và đó là việc phải bàn giao. Dòng đầu mục (phase, nhóm) chỉ gom các task con: thường chỉ có mã và tên, các cột việc để trống, và có dòng con bên dưới. Đầu mục không phải task. Mã dạng chữ (A, B) hoặc số La Mã (I, II) có thể là đầu mục hoặc task; phân biệt bằng cột việc và việc có dòng con hay không.
 - Khi trích dẫn một dòng, ghi tên file và số dòng trong file (dòng 1 là dòng đầu tiên của file, kể cả header). Nếu suy ra được cột mã hoặc ID, ghi thêm giá trị đó.
 - Không bịa dòng, số liệu, hoặc cột không có trong nội dung được gửi.
