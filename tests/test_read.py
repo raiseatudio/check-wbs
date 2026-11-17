@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import unittest
@@ -6,7 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_wbs import discord_chunks, is_discord_webhook, read_limited
+import check_wbs
+from check_wbs import GeminiHTTPError, discord_chunks, is_discord_webhook, read_limited, review_with_gemini
 
 
 DOCX_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -68,6 +70,38 @@ class DiscordReportTest(unittest.TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 2000)
         self.assertTrue(chunks[0].startswith("(1/"))
+
+
+class GeminiModelOrderTest(unittest.TestCase):
+    def tearDown(self):
+        os.environ.pop("GEMINI_MODEL", None)
+
+    def test_falls_through_high_demand(self):
+        calls = []
+        original = check_wbs.call_gemini
+
+        def fake_call(api_key, model, prompt):
+            calls.append(model)
+            if model != "gemini-2.5-flash":
+                raise GeminiHTTPError(503, "high demand", True)
+            return "báo cáo"
+
+        check_wbs.call_gemini = fake_call
+        try:
+            text = review_with_gemini("key", "prompt")
+        finally:
+            check_wbs.call_gemini = original
+        self.assertEqual(
+            calls,
+            [
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite",
+                "gemini-2.5-flash",
+            ],
+        )
+        self.assertIn("Đã dùng Gemini `gemini-2.5-flash`", text)
+        self.assertIn("báo cáo", text)
 
 
 if __name__ == "__main__":
