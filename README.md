@@ -36,9 +36,11 @@ Nội dung bảng được gửi tới Gemini. Key gửi qua header `x-goog-api-
 
 ## Khi nào chạy
 
-Workflow chạy trên pull request (`opened`, `synchronize`, `reopened`) khi đổi file WBS, file GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
+Workflow được kích hoạt trên pull request (`opened`, `synchronize`, `reopened`) khi đổi file WBS, file GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
 
-Job test kiểm tra cách phân loại đường dẫn. Job review chỉ chạy khi có cả `GEMINI_API_KEY` và `DISCORD_WEBHOOK_URL`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
+Test và review chỉ chạy khi commit mới nhất trên nhánh có chuỗi `[check]` dính liền với một đoạn ký tự, không có khoảng trắng ở giữa. Ví dụ message `update wbs [check]xxxxxxxx`. Commit không có chuỗi này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
+
+Job review còn cần cả `GEMINI_API_KEY` và `DISCORD_WEBHOOK_URL`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
 
 ## Đọc kết quả
 
