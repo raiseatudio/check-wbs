@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_wbs import read_limited
+from check_wbs import discord_chunks, is_discord_webhook, read_limited
 
 
 DOCX_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -47,6 +47,27 @@ class ReadTextTest(unittest.TestCase):
         self.assertEqual(text, "Dòng 1\nDòng 2\n")
         self.assertEqual(line_count, 2)
         self.assertFalse(truncated)
+
+
+class DiscordReportTest(unittest.TestCase):
+    def test_webhook_url_shape(self):
+        self.assertTrue(
+            is_discord_webhook("https://discord.com/api/webhooks/123/token")
+        )
+        self.assertTrue(
+            is_discord_webhook("https://discordapp.com/api/webhooks/123/token")
+        )
+        self.assertFalse(is_discord_webhook("https://example.com/hook"))
+        self.assertFalse(is_discord_webhook("http://discord.com/api/webhooks/123/token"))
+
+    def test_long_report_is_split(self):
+        text = "\n".join(f"dong {index}" for index in range(800))
+        chunks = discord_chunks(text)
+        self.assertGreater(len(chunks), 1)
+        self.assertLessEqual(len(chunks), 8)
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk), 2000)
+        self.assertTrue(chunks[0].startswith("(1/"))
 
 
 if __name__ == "__main__":

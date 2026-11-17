@@ -47,8 +47,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,19 +56,22 @@ jobs:
         id: key
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          if [ -n "$GEMINI_API_KEY" ]; then
+          if [ -n "$GEMINI_API_KEY" ] && [ -n "$DISCORD_WEBHOOK_URL" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "Thiếu secret GEMINI_API_KEY. Không gọi Gemini." >> "$GITHUB_STEP_SUMMARY"
+            echo "Thiếu secret GEMINI_API_KEY hoặc DISCORD_WEBHOOK_URL. Không chạy review." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Review WBS
         if: steps.key.outputs.present == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python scripts/check_wbs.py

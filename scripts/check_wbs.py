@@ -1,4 +1,4 @@
-"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi ghi nhận xét lên pull request."""
+"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 MAX_CHARS = 120_000
-MAX_COMMENT = 65_000
-MARKER = "<!-- check-wbs -->"
+DISCORD_BODY_LIMIT = 1_800
+MAX_DISCORD_MESSAGES = 8
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
@@ -323,17 +323,25 @@ def guidance(inventory: Inventory) -> str:
     )
 
 
-def compose_comment(body: str, root: Path, inventory: Inventory) -> str:
+def compose_report(body: str, root: Path, inventory: Inventory) -> str:
     skipped = skipped_section(root, inventory)
     text = body.strip()
     if skipped:
         text = f"{text}\n\n{skipped}"
-    comment = f"{MARKER}\n\n{text}\n"
-    if len(comment) <= MAX_COMMENT:
-        return comment
-    notice = "\n\nBáo cáo bị cắt vì vượt quá độ dài comment của GitHub.\n"
-    keep = MAX_COMMENT - len(notice) - len(MARKER) - 4
-    return f"{MARKER}\n\n{text[:keep].rstrip()}{notice}"
+    return f"{report_header()}\n\n{text}\n"
+
+
+def report_header() -> str:
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    pr_number = resolve_pr_number()
+    run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+    lines = ["**Check WBS**"]
+    if repo and pr_number:
+        lines.append(f"Pull request: {server}/{repo}/pull/{pr_number}")
+    elif repo and run_id:
+        lines.append(f"Lần chạy: {server}/{repo}/actions/runs/{run_id}")
+    return "\n".join(lines)
 
 
 def resolve_pr_number() -> str:
@@ -367,78 +375,71 @@ def write_summary(text: str) -> None:
             handle.write("\n")
 
 
-def github_json(token: str, method: str, url: str, body: dict | None = None):
-    data = None if body is None else json.dumps(body).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
-            "User-Agent": "check-wbs",
-        },
-        method=method,
+def is_discord_webhook(url: str) -> bool:
+    prefixes = (
+        "https://discord.com/api/webhooks/",
+        "https://discordapp.com/api/webhooks/",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"GitHub trả về HTTP {exc.code}: {detail}") from exc
-    if not raw:
-        return None
-    return json.loads(raw)
+    return url.startswith(prefixes) and " " not in url
 
 
-def upsert_comment(token: str, repository: str, pr_number: str, comment: str) -> None:
-    page = 1
-    existing_id = None
-    while True:
-        url = (
-            f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
-            f"?per_page=100&page={page}"
-        )
-        batch = github_json(token, "GET", url)
-        if not isinstance(batch, list):
-            raise RuntimeError("GitHub không trả về danh sách comment.")
-        for item in batch:
-            body = item.get("body") or ""
-            if MARKER in body:
-                existing_id = item.get("id")
-                break
-        if existing_id is not None or len(batch) < 100:
+def discord_chunks(text: str) -> list[str]:
+    rest = text.strip()
+    if not rest:
+        rest = "(báo cáo trống)"
+    pieces: list[str] = []
+    while rest and len(pieces) < MAX_DISCORD_MESSAGES:
+        if len(rest) <= DISCORD_BODY_LIMIT:
+            pieces.append(rest)
+            rest = ""
             break
-        page += 1
-    payload = {"body": comment}
-    if existing_id is None:
-        github_json(
-            token,
-            "POST",
-            f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments",
-            payload,
+        cut = rest.rfind("\n", 0, DISCORD_BODY_LIMIT)
+        if cut < 400:
+            cut = DISCORD_BODY_LIMIT
+        pieces.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip("\n")
+    if rest and pieces:
+        note = "\n\nBáo cáo còn phần chưa gửi vì quá dài."
+        room = DISCORD_BODY_LIMIT - len(note)
+        pieces[-1] = pieces[-1][:room].rstrip() + note
+    if len(pieces) <= 1:
+        return pieces
+    total = len(pieces)
+    numbered: list[str] = []
+    for index, piece in enumerate(pieces, start=1):
+        prefix = f"({index}/{total})\n"
+        numbered.append(prefix + piece[: DISCORD_BODY_LIMIT - len(prefix)])
+    return numbered
+
+
+def post_discord(webhook: str, text: str) -> None:
+    if not is_discord_webhook(webhook):
+        raise RuntimeError("DISCORD_WEBHOOK_URL không phải webhook Discord.")
+    for chunk in discord_chunks(text):
+        request = urllib.request.Request(
+            webhook,
+            data=json.dumps({"content": chunk}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "check-wbs",
+            },
+            method="POST",
         )
-        return
-    github_json(
-        token,
-        "PATCH",
-        f"https://api.github.com/repos/{repository}/issues/comments/{existing_id}",
-        payload,
-    )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                response.read()
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(f"Discord trả về HTTP {exc.code}: {detail}") from None
 
 
 def publish(body: str, root: Path, inventory: Inventory) -> None:
-    comment = compose_comment(body, root, inventory)
-    write_summary(comment)
-    pr_number = resolve_pr_number()
-    if not pr_number:
-        return
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
-    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
-    if not token or not repository:
-        raise RuntimeError("Thiếu GITHUB_TOKEN hoặc GITHUB_REPOSITORY để ghi comment.")
-    upsert_comment(token, repository, pr_number, comment)
+    report = compose_report(body, root, inventory)
+    write_summary(report)
+    webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if not webhook:
+        raise RuntimeError("Thiếu secret DISCORD_WEBHOOK_URL. Không gửi Discord.")
+    post_discord(webhook, report)
 
 
 def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
