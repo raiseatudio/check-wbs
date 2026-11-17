@@ -7,7 +7,7 @@ STT,TASK TITLE,ASSIGNEE,START DATE,END DATE,ESTIMATE TIME (Hour),ACTUAL TIME (Ho
 A,INIT,,,,,,,,,
 I,Create WBS,Kira,,,,,DONE,,"tạo danh sách các task chia nhỏ cho dự án, xác định DoD cho các task",
 II,Setup,,,,,,,,,
-1,Clone Project,lkangr ,4/11/2026,11/4/2026,,,DONE,,,
+1,Clone Project ,lkangr ,4/11/2026,11/4/2026,,,DONE,,,
 2,Setup Project,Ray,11/5/2026,11/6/2026,4,4,DONE,,"- Nhóm các asset cũ(images, fonts, spines) sang thư mục Old.
 - Sửa tên các scenes(Loading và Main)
 - Đồng bộ project với 2982 v213 đến hết  ngày 04/11/2026
