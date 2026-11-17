@@ -1,6 +1,26 @@
 name: Check WBS
 
 on:
+  push:
+    paths:
+      - "**/*.csv"
+      - "**/*.tsv"
+      - "**/*.xlsx"
+      - "**/*.xls"
+      - "**/*.xlsm"
+      - "**/*.ods"
+      - "**/*.txt"
+      - "**/*.text"
+      - "**/*.md"
+      - "**/*.markdown"
+      - "**/*.docx"
+      - "**/*.rtf"
+      - "**/*.doc"
+      - "**/*.pdf"
+      - "SKILL.md"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/check-wbs.yml"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -44,11 +64,11 @@ jobs:
         id: marker
         run: |
           message="$(git log -1 --format=%B)"
-          if printf '%s\n' "$message" | grep -Eq '\[check\][^[:space:]]+'; then
+          if printf '%s\n' "$message" | grep -Fq '[check]'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Commit mới nhất không chứa [check]<nội dung>, ví dụ [check]xxxxxxxx. Bỏ qua test và review." >> "$GITHUB_STEP_SUMMARY"
+            echo "Commit mới nhất không chứa [check]. Bỏ qua test và review." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   test:
