@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import unittest
@@ -6,7 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_wbs import discord_chunks, is_discord_webhook, read_limited
+import check_wbs
+from check_wbs import discord_chunks, is_discord_webhook, read_limited, review_text
 
 
 DOCX_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -68,6 +70,42 @@ class DiscordReportTest(unittest.TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 2000)
         self.assertTrue(chunks[0].startswith("(1/"))
+
+
+class ModelFallbackTest(unittest.TestCase):
+    def tearDown(self):
+        os.environ.pop("GEMINI_API_KEY", None)
+        os.environ.pop("OPENAI_API_KEY", None)
+        os.environ.pop("GEMINI_MODEL", None)
+        os.environ.pop("OPENAI_MODEL", None)
+
+    def test_gemini_failure_uses_openai(self):
+        os.environ["GEMINI_API_KEY"] = "gemini"
+        os.environ["OPENAI_API_KEY"] = "openai"
+        original_gemini = check_wbs.call_gemini
+        original_openai = check_wbs.call_openai
+
+        def fail_gemini(api_key, model, prompt):
+            raise RuntimeError("Gemini trả về HTTP 401: expired")
+
+        def use_openai(api_key, model, prompt):
+            self.assertEqual(api_key, "openai")
+            self.assertEqual(model, "gpt-4.1")
+            return "báo cáo openai"
+
+        check_wbs.call_gemini = fail_gemini
+        check_wbs.call_openai = use_openai
+        try:
+            text = review_text("prompt")
+        finally:
+            check_wbs.call_gemini = original_gemini
+            check_wbs.call_openai = original_openai
+        self.assertIn("đã dùng OpenAI (gpt-4.1)", text)
+        self.assertIn("báo cáo openai", text)
+
+    def test_missing_both_keys(self):
+        with self.assertRaises(RuntimeError):
+            review_text("prompt")
 
 
 if __name__ == "__main__":

@@ -29,18 +29,19 @@ Trong repo trên GitHub:
 
 1. Vào Settings → Secrets and variables → Actions → New repository secret.
 2. Tên: `GEMINI_API_KEY`. Giá trị là auth key tạo trong Google AI Studio. Không dán key vào file trong repo.
-3. Tên: `DISCORD_WEBHOOK_URL`. Giá trị là URL webhook của kênh Discord. Không dán URL vào file trong repo.
-4. Tùy chọn: thêm biến `GEMINI_MODEL`. Nếu bỏ trống, Action dùng `gemini-3.5-flash`.
+3. Tên: `OPENAI_API_KEY`. Dùng khi Gemini hết hạn hoặc không gọi được. Không dán key vào file trong repo.
+4. Tên: `DISCORD_WEBHOOK_URL`. Giá trị là URL webhook của kênh Discord. Không dán URL vào file trong repo.
+5. Tùy chọn: biến `GEMINI_MODEL`, mặc định `gemini-3.5-flash`. Biến `OPENAI_MODEL`, mặc định `gpt-4.1`.
 
-Nội dung bảng được gửi tới Gemini. Key gửi qua header `x-goog-api-key`.
+Action gọi Gemini trước. Nếu Gemini báo lỗi (hết hạn, hết quota, key không dùng được), Action gọi OpenAI và ghi một dòng ở đầu báo cáo Discord. Cần ít nhất một trong hai key.
 
 ## Khi nào chạy
 
 Workflow được kích hoạt trên pull request (`opened`, `synchronize`, `reopened`) khi đổi file WBS, file GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
 
-Test và review chỉ chạy khi commit mới nhất trên nhánh có chuỗi `[check]` dính liền với một đoạn ký tự, không có khoảng trắng ở giữa. Ví dụ message `update wbs [check]xxxxxxxx`. Commit không có chuỗi này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
+Test và review chỉ chạy khi commit mới nhất trên nhánh chứa đúng chữ `[check]`. Phía sau có thêm chữ hay không đều được, ví dụ `[check]` hoặc `update wbs [check]`. Commit không có chữ này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
 
-Job review còn cần cả `GEMINI_API_KEY` và `DISCORD_WEBHOOK_URL`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
+Job review cần `DISCORD_WEBHOOK_URL` và ít nhất một trong `GEMINI_API_KEY` hoặc `OPENAI_API_KEY`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
 
 ## Đọc kết quả
 
