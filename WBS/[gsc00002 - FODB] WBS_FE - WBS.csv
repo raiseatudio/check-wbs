@@ -113,7 +113,7 @@ I,ADVANCED LOGIC,,,,,,,,,
 - Có thể vào lại Tutorial trong Help Info",
 7,AutoMode Tutorial,Kira,,,12,,TO DO,Full Build,"- Hướng dẫn đầy đủ và chính xác cách chơi automode cho người chơi 
 - Có thể vào lại Tutorial trong Auto Popup",
-8,Exit Game & Lifecycle Cleanup,All,,,,,TO DO,Full Build,"- Bắt đúng sự kiện thoát về Portal / đóng game: Dừng toàn bộ các Tween đang chạy (Tween.stopAllByTarget), hủy các hàm đếm thời gian.
+8,Exit Game & Lifecycle Cleanup,All ,,,,,TO DO,Full Build,"- Bắt đúng sự kiện thoát về Portal / đóng game: Dừng toàn bộ các Tween đang chạy (Tween.stopAllByTarget), hủy các hàm đếm thời gian.
 - Thoát về Portal hoặc chuyển màn hình mượt mà, không crash game.",mọi người sẽ check phần mình làm
 II,Animation,,,,,,,,,
 1,Mascot Spine Animations,Kira,,,8,,TO DO,Full Build,- Tích hợp Spine Mascot: Chạy đúng các animation theo từng trường hợp. Switch animation mượt mà,
