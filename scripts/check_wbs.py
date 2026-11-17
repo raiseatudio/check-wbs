@@ -1,4 +1,7 @@
-"""Đọc WBS và GDD, gọi OpenAI theo SKILL.md, rồi ghi nhận xét lên pull request."""
+"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord.
+
+Nếu Gemini không gọi được, dùng DeepSeek khi có DEEPSEEK_API_KEY.
+"""
 
 from __future__ import annotations
 
@@ -7,22 +10,32 @@ import os
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
 MAX_CHARS = 120_000
-MAX_COMMENT = 65_000
-MARKER = "<!-- check-wbs -->"
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-DEFAULT_MODEL = "gpt-4.1"
-SUPPORTED_EXT = {".csv", ".tsv"}
-SPREADSHEET_EXT = SUPPORTED_EXT | {".xlsx", ".xls", ".xlsm", ".ods"}
+DISCORD_BODY_LIMIT = 1_800
+MAX_DISCORD_MESSAGES = 8
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
+WBS_TABLE_EXT = {".csv", ".tsv"}
+WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
+GDD_TEXT_EXT = {".txt", ".text", ".md", ".markdown", ".docx", ".rtf"}
+GDD_UNSUPPORTED_EXT = WBS_UNSUPPORTED_EXT | {".doc", ".pdf"}
 SKIP_DIRS = {".git", ".hg", ".svn", "__pycache__", ".venv", "venv"}
+DOCX_PARAGRAPH = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"
+DOCX_TEXT = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
 SYSTEM_PROMPT = (
     "Bạn là người review WBS. Tuân thủ đúng SKILL.md trong phần người dùng. "
     "Trả lời bằng tiếng Việt, đúng khuôn báo cáo trong SKILL.md. "
     "Không thêm luật nghiệp vụ ngoài SKILL.md. "
-    "Không bịa dòng không có trong bảng."
+    "Không bịa nội dung không có trong file được gửi."
 )
 
 
@@ -31,7 +44,8 @@ def classify_path(path: str) -> str | None:
 
     Trả về "wbs", "gdd", "ambiguous", "unsupported", hoặc None nếu không phải file cần xét.
     Thư mục phải đúng tên "wbs" hoặc "gdd". Tên file khớp khi token đứng riêng,
-    ví dụ WBS_export.csv hoặc my-gdd.tsv. mywbs.csv không khớp.
+    ví dụ WBS_export.csv hoặc my-gdd.docx. mywbs.csv không khớp.
+    WBS chỉ nhận CSV/TSV. GDD nhận thêm TXT, MD, DOCX và RTF.
     """
     normalized = path.replace("\\", "/").strip()
     if not normalized or normalized.endswith("/"):
@@ -41,7 +55,7 @@ def classify_path(path: str) -> str | None:
         return None
     filename = parts[-1]
     suffix = Path(filename).suffix.lower()
-    if suffix not in SPREADSHEET_EXT:
+    if suffix not in _known_extensions():
         return None
 
     kinds: set[str] = set()
@@ -60,9 +74,21 @@ def classify_path(path: str) -> str | None:
         return None
     if len(kinds) > 1:
         return "ambiguous"
-    if suffix not in SUPPORTED_EXT:
+    if "wbs" in kinds:
+        if suffix in WBS_TABLE_EXT:
+            return "wbs"
+        if suffix in WBS_UNSUPPORTED_EXT:
+            return "unsupported"
+        return None
+    if suffix in WBS_TABLE_EXT or suffix in GDD_TEXT_EXT:
+        return "gdd"
+    if suffix in GDD_UNSUPPORTED_EXT:
         return "unsupported"
-    return "wbs" if "wbs" in kinds else "gdd"
+    return None
+
+
+def _known_extensions() -> set[str]:
+    return WBS_TABLE_EXT | WBS_UNSUPPORTED_EXT | GDD_TEXT_EXT | GDD_UNSUPPORTED_EXT
 
 
 def _has_token(filename: str, token: str) -> bool:
@@ -117,25 +143,113 @@ def collect(root: Path) -> Inventory:
 
 
 def read_limited(path: Path) -> tuple[str, int, bool]:
+    text = extract_text(path)
     kept: list[str] = []
     kept_len = 0
     line_count = 0
     truncated = False
-    with path.open("r", encoding="utf-8-sig", errors="replace") as handle:
-        for line in handle:
-            line_count += 1
-            if kept_len >= MAX_CHARS:
-                truncated = True
-                continue
-            room = MAX_CHARS - kept_len
-            if len(line) > room:
-                kept.append(line[:room])
-                kept_len += room
-                truncated = True
-                continue
-            kept.append(line)
-            kept_len += len(line)
+    lines = text.splitlines(keepends=True)
+    if text and not lines:
+        lines = [text]
+    for line in lines:
+        line_count += 1
+        if kept_len >= MAX_CHARS:
+            truncated = True
+            continue
+        room = MAX_CHARS - kept_len
+        if len(line) > room:
+            kept.append(line[:room])
+            kept_len += room
+            truncated = True
+            continue
+        kept.append(line)
+        kept_len += len(line)
     return "".join(kept), line_count, truncated
+
+
+def extract_text(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        return docx_to_text(path)
+    if suffix == ".rtf":
+        raw = path.read_text(encoding="utf-8-sig", errors="replace")
+        return rtf_to_text(raw)
+    return path.read_text(encoding="utf-8-sig", errors="replace")
+
+
+def docx_to_text(path: Path) -> str:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            try:
+                payload = archive.read("word/document.xml")
+            except KeyError as exc:
+                raise RuntimeError(f"Không đọc được {path.name}: thiếu nội dung Word.") from exc
+    except zipfile.BadZipFile as exc:
+        raise RuntimeError(f"Không đọc được {path.name}: file docx hỏng.") from exc
+    try:
+        root = ElementTree.fromstring(payload)
+    except ElementTree.ParseError as exc:
+        raise RuntimeError(f"Không đọc được {path.name}: XML hỏng.") from exc
+    paragraphs = []
+    for paragraph in root.iter(DOCX_PARAGRAPH):
+        paragraphs.append("".join(node.text or "" for node in paragraph.iter(DOCX_TEXT)))
+    return "\n".join(paragraphs)
+
+
+def rtf_to_text(raw: str) -> str:
+    out: list[str] = []
+    index = 0
+    length = len(raw)
+    while index < length:
+        char = raw[index]
+        if char in "{}":
+            index += 1
+            continue
+        if char != "\\":
+            if char not in "\r\n":
+                out.append(char)
+            index += 1
+            continue
+        nxt = raw[index + 1] if index + 1 < length else ""
+        if nxt in "\\{}":
+            out.append(nxt)
+            index += 2
+            continue
+        if nxt == "u" and index + 2 < length and raw[index + 2] in "-0123456789":
+            index += 2
+            sign = 1
+            if raw[index] == "-":
+                sign = -1
+                index += 1
+            number = 0
+            while index < length and raw[index].isdigit():
+                number = number * 10 + int(raw[index])
+                index += 1
+            code = sign * number
+            if code < 0:
+                code += 65536
+            out.append(chr(code))
+            if index < length and raw[index] not in "\\{}":
+                index += 1
+            continue
+        word, index = _rtf_control_word(raw, index)
+        if word in {"par", "line"}:
+            out.append("\n")
+    return "".join(out).strip("\n")
+
+
+def _rtf_control_word(raw: str, index: int) -> tuple[str, int]:
+    cursor = index + 1
+    while cursor < len(raw) and raw[cursor].isalpha():
+        cursor += 1
+    word = raw[index + 1 : cursor]
+    if cursor < len(raw) and raw[cursor] == "-":
+        cursor += 1
+    while cursor < len(raw) and raw[cursor].isdigit():
+        cursor += 1
+    if cursor < len(raw) and raw[cursor] == " ":
+        cursor += 1
+    return word, cursor
 
 
 def fence_for(text: str) -> str:
@@ -165,7 +279,7 @@ def build_user_prompt(skill: str, root: Path, inventory: Inventory) -> str:
     parts = ["# SKILL.md", "", skill.strip(), "", "# Bảng WBS", ""]
     for path in inventory.wbs:
         parts.append(render_file(root, path, "wbs"))
-    parts.append("# Bảng GDD")
+    parts.append("# GDD")
     parts.append("")
     for path in inventory.gdd:
         parts.append(render_file(root, path, "gdd"))
@@ -184,7 +298,10 @@ def skipped_section(root: Path, inventory: Inventory) -> str:
     if inventory.unsupported:
         lines.append("### File không đọc được")
         lines.append("")
-        lines.append("Chỉ nhận CSV hoặc TSV. Hãy export từ Google Sheet.")
+        lines.append(
+            "WBS chỉ nhận CSV hoặc TSV. GDD nhận CSV, TSV, TXT, MD, DOCX hoặc RTF. "
+            "File Excel, PDF, hoặc Word cũ (.doc) hãy export sang các định dạng đó."
+        )
         lines.append("")
         for path in inventory.unsupported:
             lines.append(f"- `{path.relative_to(root).as_posix()}`")
@@ -201,25 +318,35 @@ def guidance(inventory: Inventory) -> str:
     joined = " và ".join(missing)
     return (
         f"Thiếu file {joined} trên commit này.\n\n"
-        "Cần ít nhất một file WBS và một file GDD dạng CSV hoặc TSV:\n"
-        "- Đặt trong thư mục `wbs/` hoặc `gdd/`, hoặc\n"
-        "- Đặt tên file có token `wbs` / `gdd` "
-        "(ví dụ `WBS_export.csv`, `my-gdd.tsv`).\n\n"
-        "File Excel không được đọc. Hãy export CSV hoặc TSV từ Google Sheet."
+        "Cần ít nhất một file WBS và một file GDD.\n"
+        "- WBS là CSV hoặc TSV, đặt trong thư mục `wbs/` hoặc tên file có token `wbs` "
+        "(ví dụ `WBS_export.csv`).\n"
+        "- GDD là CSV, TSV, TXT, MD, DOCX hoặc RTF, đặt trong thư mục `gdd/` "
+        "hoặc tên file có token `gdd` (ví dụ `my-gdd.docx`, `GDD.txt`).\n\n"
+        "File Excel, PDF, hoặc Word cũ (.doc) không được đọc. "
+        "Hãy export WBS sang CSV hoặc TSV, và GDD sang DOCX hoặc TXT."
     )
 
 
-def compose_comment(body: str, root: Path, inventory: Inventory) -> str:
+def compose_report(body: str, root: Path, inventory: Inventory) -> str:
     skipped = skipped_section(root, inventory)
     text = body.strip()
     if skipped:
         text = f"{text}\n\n{skipped}"
-    comment = f"{MARKER}\n\n{text}\n"
-    if len(comment) <= MAX_COMMENT:
-        return comment
-    notice = "\n\nBáo cáo bị cắt vì vượt quá độ dài comment của GitHub.\n"
-    keep = MAX_COMMENT - len(notice) - len(MARKER) - 4
-    return f"{MARKER}\n\n{text[:keep].rstrip()}{notice}"
+    return f"{report_header()}\n\n{text}\n"
+
+
+def report_header() -> str:
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    pr_number = resolve_pr_number()
+    run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+    lines = ["**Check WBS**"]
+    if repo and pr_number:
+        lines.append(f"Pull request: {server}/{repo}/pull/{pr_number}")
+    elif repo and run_id:
+        lines.append(f"Lần chạy: {server}/{repo}/actions/runs/{run_id}")
+    return "\n".join(lines)
 
 
 def resolve_pr_number() -> str:
@@ -253,81 +380,117 @@ def write_summary(text: str) -> None:
             handle.write("\n")
 
 
-def github_json(token: str, method: str, url: str, body: dict | None = None):
-    data = None if body is None else json.dumps(body).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
-            "User-Agent": "check-wbs",
-        },
-        method=method,
+def is_discord_webhook(url: str) -> bool:
+    prefixes = (
+        "https://discord.com/api/webhooks/",
+        "https://discordapp.com/api/webhooks/",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"GitHub trả về HTTP {exc.code}: {detail}") from exc
-    if not raw:
-        return None
-    return json.loads(raw)
+    return url.startswith(prefixes) and " " not in url
 
 
-def upsert_comment(token: str, repository: str, pr_number: str, comment: str) -> None:
-    page = 1
-    existing_id = None
-    while True:
-        url = (
-            f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
-            f"?per_page=100&page={page}"
-        )
-        batch = github_json(token, "GET", url)
-        if not isinstance(batch, list):
-            raise RuntimeError("GitHub không trả về danh sách comment.")
-        for item in batch:
-            body = item.get("body") or ""
-            if MARKER in body:
-                existing_id = item.get("id")
-                break
-        if existing_id is not None or len(batch) < 100:
+def discord_chunks(text: str) -> list[str]:
+    rest = text.strip()
+    if not rest:
+        rest = "(báo cáo trống)"
+    pieces: list[str] = []
+    while rest and len(pieces) < MAX_DISCORD_MESSAGES:
+        if len(rest) <= DISCORD_BODY_LIMIT:
+            pieces.append(rest)
+            rest = ""
             break
-        page += 1
-    payload = {"body": comment}
-    if existing_id is None:
-        github_json(
-            token,
-            "POST",
-            f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments",
-            payload,
+        cut = rest.rfind("\n", 0, DISCORD_BODY_LIMIT)
+        if cut < 400:
+            cut = DISCORD_BODY_LIMIT
+        pieces.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip("\n")
+    if rest and pieces:
+        note = "\n\nBáo cáo còn phần chưa gửi vì quá dài."
+        room = DISCORD_BODY_LIMIT - len(note)
+        pieces[-1] = pieces[-1][:room].rstrip() + note
+    if len(pieces) <= 1:
+        return pieces
+    total = len(pieces)
+    numbered: list[str] = []
+    for index, piece in enumerate(pieces, start=1):
+        prefix = f"({index}/{total})\n"
+        numbered.append(prefix + piece[: DISCORD_BODY_LIMIT - len(prefix)])
+    return numbered
+
+
+def post_discord(webhook: str, text: str) -> None:
+    if not is_discord_webhook(webhook):
+        raise RuntimeError("DISCORD_WEBHOOK_URL không phải webhook Discord.")
+    for chunk in discord_chunks(text):
+        request = urllib.request.Request(
+            webhook,
+            data=json.dumps({"content": chunk}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "check-wbs",
+            },
+            method="POST",
         )
-        return
-    github_json(
-        token,
-        "PATCH",
-        f"https://api.github.com/repos/{repository}/issues/comments/{existing_id}",
-        payload,
-    )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                response.read()
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(f"Discord trả về HTTP {exc.code}: {detail}") from None
 
 
 def publish(body: str, root: Path, inventory: Inventory) -> None:
-    comment = compose_comment(body, root, inventory)
-    write_summary(comment)
-    pr_number = resolve_pr_number()
-    if not pr_number:
-        return
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
-    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
-    if not token or not repository:
-        raise RuntimeError("Thiếu GITHUB_TOKEN hoặc GITHUB_REPOSITORY để ghi comment.")
-    upsert_comment(token, repository, pr_number, comment)
+    report = compose_report(body, root, inventory)
+    write_summary(report)
+    webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if not webhook:
+        raise RuntimeError("Thiếu secret DISCORD_WEBHOOK_URL. Không gửi Discord.")
+    post_discord(webhook, report)
 
 
-def call_openai(api_key: str, model: str, user_prompt: str) -> str:
+def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    if not model or any(char not in allowed for char in model):
+        raise RuntimeError(f"Tên model Gemini không hợp lệ: {model}")
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": 0.2},
+    }
+    request = urllib.request.Request(
+        GEMINI_URL.format(model=model),
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-goog-api-key": api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:2000]
+        raise RuntimeError(f"Gemini trả về HTTP {exc.code}: {detail}") from exc
+    data = json.loads(raw)
+    candidates = data.get("candidates") if isinstance(data, dict) else None
+    if not candidates:
+        raise RuntimeError("Gemini không trả về nội dung review.")
+    parts = candidates[0].get("content", {}).get("parts", [])
+    texts = [
+        part.get("text", "")
+        for part in parts
+        if isinstance(part, dict) and isinstance(part.get("text"), str)
+    ]
+    content = "".join(texts).strip()
+    if not content:
+        raise RuntimeError("Gemini trả về nội dung review rỗng.")
+    return content
+
+
+def call_deepseek(api_key: str, model: str, user_prompt: str) -> str:
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    if not model or any(char not in allowed for char in model):
+        raise RuntimeError(f"Tên model DeepSeek không hợp lệ: {model}")
     payload = {
         "model": model,
         "temperature": 0.2,
@@ -337,7 +500,7 @@ def call_openai(api_key: str, model: str, user_prompt: str) -> str:
         ],
     }
     request = urllib.request.Request(
-        OPENAI_URL,
+        DEEPSEEK_URL,
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -350,15 +513,39 @@ def call_openai(api_key: str, model: str, user_prompt: str) -> str:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"OpenAI trả về HTTP {exc.code}: {detail}") from exc
+        raise RuntimeError(f"DeepSeek trả về HTTP {exc.code}: {detail}") from None
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"DeepSeek không kết nối được: {exc.reason}") from None
     data = json.loads(raw)
     try:
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("OpenAI không trả về nội dung review.") from exc
+        raise RuntimeError("DeepSeek không trả về nội dung review.") from exc
     if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("OpenAI trả về nội dung review rỗng.")
+        raise RuntimeError("DeepSeek trả về nội dung review rỗng.")
     return content.strip()
+
+
+def review_text(user_prompt: str) -> str:
+    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    gemini_model = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
+    deepseek_model = os.environ.get("DEEPSEEK_MODEL", "").strip() or DEFAULT_DEEPSEEK_MODEL
+    gemini_error: Exception | None = None
+    if gemini_key:
+        try:
+            return call_gemini(gemini_key, gemini_model, user_prompt)
+        except (RuntimeError, urllib.error.URLError) as exc:
+            gemini_error = exc
+            print(f"Gemini không dùng được, chuyển sang DeepSeek: {exc}", file=sys.stderr)
+    if deepseek_key:
+        report = call_deepseek(deepseek_key, deepseek_model, user_prompt)
+        if gemini_error is None:
+            return report
+        return f"Gemini không gọi được, đã dùng DeepSeek ({deepseek_model}).\n\n{report}"
+    if gemini_error is not None:
+        raise RuntimeError(f"{gemini_error} Không có DEEPSEEK_API_KEY để thay thế.")
+    raise RuntimeError("Thiếu GEMINI_API_KEY và DEEPSEEK_API_KEY.")
 
 
 def repo_root() -> Path:
@@ -388,12 +575,7 @@ def run() -> int:
         publish("SKILL.md đang trống. Hãy điền bộ luật review trước khi chạy.", root, inventory)
         return 1
 
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        publish("Thiếu secret OPENAI_API_KEY. Không gọi OpenAI.", root, inventory)
-        return 1
-    model = os.environ.get("OPENAI_MODEL", "").strip() or DEFAULT_MODEL
-    report = call_openai(api_key, model, build_user_prompt(skill, root, inventory))
+    report = review_text(build_user_prompt(skill, root, inventory))
     publish(report, root, inventory)
     return 0
 
