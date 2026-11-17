@@ -1,0 +1,151 @@
+Fortune of Divine Beasts,,,,,,,,,,
+,,,,,,,,,,
+Link feedback,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+STT,TASK TITLE,ASSIGNEE,START DATE,END DATE,ESTIMATE TIME (Hour),ACTUAL TIME (Hour),STATUS,BUILD,Definition of Done,NOTE
+A,INIT,,,,,,,,,
+I,Create WBS,Kira,,,,,DONE,,"tạo danh sách các task chia nhỏ cho dự án, xác định DoD cho các task",
+II,Setup,,,,,,,,,
+1,Clone Project,lkangr,4/11/2026,11/4/2026,,,DONE,,,
+2,Setup Project,Ray,11/5/2026,11/6/2026,4,4,DONE,,"- Nhóm các asset cũ(images, fonts, spines) sang thư mục Old.
+- Sửa tên các scenes(Loading và Main)
+- Đồng bộ project với 2982 v213 đến hết ngày 04/11/2026
+- Xóa phần liên quan 3D(3D node trên mainScene, và 3D scripts, update logic)",
+B,PHASE 1: MVP BUILD (CORE LOGIC & NETWORK),,,,,,,,,
+I,Game Network,,,,,,,,,
+1,Game Network & Data Parser,lkangr,,,4,,TO DO,1st Build,"- Khởi tạo GameNetwork đăng ký đủ packet: Join, Bet, Action/Open, Cashout, ForceEnd.
+- Parse chính xác payload từ server thành DataStore (PlayerInfo, RoundData).
+- Bắt lỗi timeout/rớt socket và show log rõ ràng.",
+2,BE Contract Integration,lkangr,,,4,,TO DO,1st Build,"- Khai báo và map đủ 100% Command ID khớp tài liệu Contract BE.
+- Request gửi đi và Response nhận về đúng kiểu dữ liệu (không lỗi undefined/NaN ở các trường tiền, tỉ lệ, ID).
+- Bắt đúng danh mục Error Codes từ BE để hiển thị đúng Toast/Dialog lỗi tương ứng.
+- Log request/response rõ ràng hỗ trợ đối soát DEV/STG.",
+II,Game Logic,,,,,,,,,
+1,Core Game Loop (State Machine),lkangr,,,4,,TO DO,1st Build,"- Vòng lặp State chuyển đúng chuẩn: INIT→BETTING→PLAYING →RESULT/POWERMODE.
+- Nhận đúng các event chuyển state giữa Controller và View, không leak state.",
+2,Betting Logic	,lkangr,,,4,,TO DO,1st Build,"- Gửi request Bet thành công, trừ pending wallet đúng số tiền.
+- Chặn cược khi số dư ví < bet value, chặn spam click.",
+3," Mở ô, Nút Random & Cashout",Ray,,,4,,TO DO,1st Build,"- Click vào ô trên bàn cờ gửi request mở ô đó lên server.
+- Nút btnRandom: Tự động tìm và mở 1 ô ngẫu nhiên chưa mở; khóa tương tác khi ô đang mở.
+- Ô là Gem hoặc Sacred Jade: Nhảy số tiền thắng lên lblCashoutValue, enable nút btnClaim.
+- Bấm btnClaim: Gửi request cashout, cộng tiền ví thật, về màn kết quả.
+- Ô là Nothing: Chuyển thẳng về màn thua cuộc (crash).
+- Reset qua round mới: Úp lại toàn bộ các ô cờ, cuộn Multiplier Bar về mốc 0 ban đầu, tiền tạm tính đưa về 0, reset lại mascot",
+C,PHASE 2: 1ST BUILD (STATIC UI & MAIN FEATURES),,,,,,,,,
+1,Update layout main game to landscape,Ray,,,8,7,DONE,1st Build,"- Chuyển layout cũ từ portrait qua landscape
+- Tạo layout tạm, đảm bảo các thành phần đều hiện thị đủ theo resolution mới",
+2,"Update layout loading, popup to landscape",Kira,,,8,,DONE,1st Build,"- Chuyển layout cũ từ portrait qua landscape
+- Tạo layout tạm, đảm bảo các thành phần đều hiện thị đủ theo resolution mới",
+3,Setup build iframe,lkangr,,,4,,TO DO,1st Build,"- setup game lên config build, sẵn sàng build game",
+4,Logic resize resolution,lkangr,,,4,,TO DO,1st Build,"- game resize khớp các resolution khác nhau
+- không bị mất ui ở các tỉ lệ màn hình khác nhau",
+I,Loading scene,,,,,,,,,
+1,LoadingUI ,Kira,,,4,,TO DO,1st Build,"- Layout đúng Logo và Background art game mới.
+- Thanh progress bar hiển thị nạp tài nguyên từ 0% đến 100%, tự động chuyển sang Main.scene khi nạp xong và kết nối socket thành công.",
+II,Game Scene,,,,,,,,,
+1,Background Layer (Static Art),Kira,,,4,,IN-PROGRESS,1st Build,- Ráp đúng các layer background tĩnh. Căn chỉnh scale/widget vừa vặn trên các tỉ lệ màn hình khác nhau.,
+2,"CommonUI (gameNum, Wallet, UserInfo, NetworkStatus)",Kira,,,4,,IN-PROGRESS,1st Build,"- Hiển thị chính xác ID ván, tình trạng mạng và số dư ví. Số dư tự động update khi cược, thắng, hoặc nhận push cập nhật ví từ server.",
+3,"BetUI (betting box, change difficulty)",Kira,,,4,,TO DO,1st Build,"- Thay skin ô cược và hai nút +/-
+- Hiển thị 20¢ đến 100$ vừa khung. Nút - mờ ở min, nút + mờ ở max.
+- Giữ +/− cho thấy trạng thái nhấn liên tục, nhả tay hoặc chạm biên trả đúng skin nút.
+- Lưu giá trị BetAmount và Diff khi F5.
+- Nút đổi độ khó chuyển qua lại các mức và cập nhật label lblDiff",
+4,Start Button / Cashout Button,Ray,,,2,,TO DO,1st Build,"- Button Start mở tương tác ở BettingState, khóa tương tác khi bắt đầu quay/chơi. Xử lý chặn click liên tục và phát SFX click/cược tương ứng.
+- Ráp layout nút Cash out kèm label số tiền thắng tạm tính.",
+5, Random Button,Ray,,,2,,TO DO,1st Build,"- Ráp nút mở ngẫu nhiên, chỉ mở tương tác ở PlayingState, khóa khi kết thúc ván hoặc khi đang chạy Auto.
+- Button có thể bấm liên tục và tối đa 2 lần cùng 1 thời điểm.",
+6,4 Mascot UI (Static & Position),Kira,,,4,,TO DO,1st Build,- Ráp node Mascot vào Scene đúng vị trí anchor,
+7,Jackpot & Bonus,Ray,,,4,,TO DO,1st Build,- Hiển thị đúng số tiền jackpot và bonus hiện có. Tự động update giá trị khi có push cập nhật từ server.,
+8,Multiplier Bar,Ray,,,4,,IN-PROGRESS,1st Build,"- Hiển thị Multiplier Bar và các mốc Bonus Multiplier.
+- Vuốt touch hoặc cuộn chuột mượt mà, không bị văng lệch khỏi khung nhìn",
+9,Play Board (Grid Tile) Layout,Ray,,,4,,IN-PROGRESS,1st Build,"- Ráp ma trận các ô vào GridTile theo đúng kích thước layout. Bắt đúng sự kiện click mở ô vào controller.
+- Mỗi tile cần có đúng các trạng thái Close | Nothing | Gem | Sacred Jade.",
+10,Remove old bingo,Ray,,,8,,DROP,1st Build,"- Bỏ phần bingo cũ
+- Cập nhật logic đảm bảo game chạy đúng theo logic mới không có bingo",
+11,Jade Collect & Combination UI,Ray,,,8,,TO DO,1st Build,"- Hiển thị trực quan Stone Plate với 8 tổ hợp ngọc và 9 loại ngọc đúng màu sắc, thiết kế.
+- Chỉ báo Init Bonus nhấp nháy và UI tự động cập nhật giá trị Jackpot mới khi đạt đủ điều kiện.",
+12,AutoPlay UI,Ray,,,4,,TO DO,Full Build,"- Ráp đúng layout popup Auto Play.
+- Giới hạn chọn ô theo độ khó tương ứng. 
+- Ráp đúng thanh slider, nút Confirm, Clear, và nút ButtonStopAuto.
+",
+13,PowerMode UI,Kira,,,4,,TO DO,Full Build,"- Ráp đúng layout popup PowerMode
+- Ráp toggle TogglePowerMode và popup ConfirmPowerMode",
+14,Promotion UI,Ray,,,2,,TO DO,Full Build,- Hiển thị đúng tag số lượt Free Bet còn lại nằm trên nút cược.,
+III,Popup,,,,,,,,,
+1,PopupSetting,Kira,,,4,,TO DO,Full Build,"- Bật/tắt BGM và SFX độc lập.
+- Các nút điều hướng (HelpInfo, Bet History, Jackpot History, Exit) click mở đúng popup tương ứng.
+- Ẩn nút Exit trên Iframe",
+2,PopupHistory,Kira,,,4,,TO DO,Full Build,"- Danh sách lịch sử cược phân trang, xem chi tiết lsc.
+- Bấm vào 1 dòng xem được chi tiết ván cược (các ô đã mở, tiền cược, tiền thắng)",
+3,PopupJackpotHistory,Kira,,,4,,TO DO,Full Build,- Danh sách lịch sử jackpot phân trang chuẩn API.,
+4,PopupHelpInfo,Kira,,,4,,TO DO,Full Build,"- Đầy đủ các trang luật chơi, vuốt/chuyển tab mượt.",
+5,PopupPromotion,Ray,,,2,,TO DO,Full Build,"- Hiển thị đúng 2 template text Standard/Daily
+- Ráp nhãn đếm số lượt free plays còn lại (labelRemainPromo) trên nút cược BtnPlay.",
+6,Dialog,Kira,,,4,,TO DO,Full Build,"- Dialog lỗi hệ thống (mất kết nối, force exit) có callback nút bấm chuẩn.",
+7,Toast,Kira,,,2,,TO DO,Full Build,"- Toast thông báo đúng trạng thái (mất mạng, cược lỗi...)",
+D,"PHASE 3: ADVANCED LOGIC & FULL BUILD (ANIMATION, VFX)",,,,,,,,,
+I,ADVANCED LOGIC,,,,,,,,,
+1,AutoPlay Logic,Ray,,,4,,TO DO,Full Build,"- Nhận số ô mở ngẫu nhiên đã chọn từ popup Auto Play→ tự động mở ô không cần click tay.
+- Mở đủ số ô đã cấu hình→ tự động kích hoạt Cash out nhận tiền.
+- Bấm nút ButtonStopAuto ngoài bàn chơi → dừng auto ngay lập tức.
+- Lưu giá trị số ô mở ngẫu nhiên, số round và độ khó khi f5.
+- Đồng bộ độ khó khi tắt/mở Popup Auto",
+2,PowerMode Logic,Kira,,,4,,TO DO,Full Build,"- Nhận và xử lý mở hàng loạt ô đã chọn từ popup Auto Play.
+- Hiển thị đúng tổng kết số tiền thắng trên popup PopupPowerModeResult khi kết thúc hoặc bấm nút Stop.",
+2, Promotion Flow Logic,Ray,,,4,,TO DO,Full Build,"- Khóa bet khi có Promotion, hiển thị đúng lượt đang có trên button Start
+- Offline Claim (vào game hiện popup) & Online Claim (xong ván hiện tại mới hiện popup).
+- Bấm Confirm → kích hoạt cược không trừ tiền ví, khóa nút +/-.
+- Hết lượt tự động mở khóa nút cược và quay về ví thật; lưu đúng tag vào Bet History.
+- expired: hiển thị toast và nút Start về normal",
+3,Reconnect & Resume Logic        ,Ray,,,8,,TO DO,Full Build,"- F5 hoặc reload trang khôi phục đúng ván đang chơi dở (đúng số ô đang mở, hệ số nhân, tiền thắng hiện tại).
+- Ẩn tab (hidden tab) > 60s quay lại không bị kẹt game, tự đồng bộ lại session từ server.
+- Ván kết thúc lúc mất mạng thì khi reconnect tự nhảy về màn Result.",
+4,AFK/Idle,Kira,,,8,,TO DO,Full Build,"- Không thao tác đến giây thứ 40 → hiện Toast cảnh báo (nhấp nháy 2–3 lần) kèm đếm ngược 10s (tại giây 50→60); hủy cảnh báo và reset timer ngay nếu người chơi thao tác lại.
+- Tại Step 0, hết đếm ngược → hệ thống tự động mở 1 ô ngẫu nhiên.
+- Từ Step 1 trở đi, hết đếm ngược → hệ thống tự động Cash Out ở hệ số hiện tại và kết thúc phiên.
+- Điền đủ nội dung Toast Content và đồng bộ chính xác thời gian giữa Client – Server.",
+5,BO Integration (Bet & Jackpot History API),Kira,,,6,,TO DO,Full Build,"- Kết nối đúng REST API BO theo Auth token, URL param và môi trường (DEV/STG/PROD).
+- Phân trang chuẩn, format đúng ngày giờ, tiền tệ, tag Promotion.
+- Bấm vào dòng lịch sử cược mở ra đúng chi tiết ván.
+- Hiển thị đúng trạng thái Loading, Empty state (""Không có dữ liệu""), khi lỗi mạng hoặc request timeout tự ngắt loading sau timeout (4s), không làm treo đơ popup và vẫn cho phép đóng popup bình thường.",
+6,Gameplay Tutorial,Ray,,,16,,TO DO,Full Build,"- Hướng dẫn đầy đủ và chính xác cách chơi cho người chơi
+- Có thể vào lại Tutorial trong Help Info",
+7,AutoMode Tutorial,Kira,,,12,,TO DO,Full Build,"- Hướng dẫn đầy đủ và chính xác cách chơi automode cho người chơi 
+- Có thể vào lại Tutorial trong Auto Popup",
+8,Exit Game & Lifecycle Cleanup,All,,,,,TO DO,Full Build,"- Bắt đúng sự kiện thoát về Portal / đóng game: Dừng toàn bộ các Tween đang chạy (Tween.stopAllByTarget), hủy các hàm đếm thời gian.
+- Thoát về Portal hoặc chuyển màn hình mượt mà, không crash game.",mọi người sẽ check phần mình làm
+II,Animation,,,,,,,,,
+1,Mascot Spine Animations,Kira,,,8,,TO DO,Full Build,- Tích hợp Spine Mascot: Chạy đúng các animation theo từng trường hợp. Switch animation mượt mà,
+2,Bonus & Jackpot Presentation,Ray,,,8,,TO DO,Full Build,"- Tích hợp Jackpot Spine. Chạy animation mượt mà.
+- Hiệu ứng chạy số tăng dần đúng số tiền thắng, có nút Skip hoặc tự đóng sau timeout",
+3,Win Result Popup,Kira,,,8,,TO DO,Full Build,"- Tích hợp Win Spine. Chạy animation mượt mà.
+- Hiệu ứng chạy số tăng dần đúng số tiền thắng, có nút Skip hoặc tự đóng sau timeout",
+4,VFX PowerMode,Kira,,,4,,TO DO,Full Build,"- Hiệu ứng lật nhanh liên hoàn các ô trong Power Mode.
+SFX nổ thưởng dồn dập.",
+5,VFX Tile Open,Ray,,,7,,TO DO,Full Build,"- Hiệu ứng lật ô, Spine animation khi mở ra ngọc.
+- Hiệu ứng crash khi không mở ra ngọc.",
+6,VFX Multiplier,Ray,,,8,,TO DO,Full Build,- Hiệu ứng khi tăng multiplier khi mở được ô ngọc. Thu thập đủ ngọc thì diễn đúng animation bonus,
+7,Jade Collect & Combination Animation,Ray,,,8,,TO DO,Full Build,"- Hiệu ứng động khi thu thập ngọc và cập nhật tiến trình lên bảng.
+- Hiệu ứng mở cổng của Tứ Thần Thú, rương báu bay ra và mở khi hoàn thành đủ 8 combo.",
+E,PHASE 4: SOUND & FINAL BUILD,,,,,,,,,
+I,Sound,,,,,,,,,
+1,Apply SFXs,lkangr,,,8,,TO DO,Full Build,"- Tích hợp đầy đủ BGM nền và SFX: click nút, Mascot, mở ô, cashout, thua, auto, nổ hũ.
+- Mute/Unmute đúng cài đặt.",
+2,Apply new sound base,lkangr,,,12,,TO DO,Full Build,- sử dụng sound base mới cho game,
+3,Multi-Platform Build Setup (Iframe / App / WebApp),lkangr,,,8,,TO DO,Full Build,"- Iframe: parse chuẩn query params (token, env, lang, currency).
+- WebApp & Mobile: Xử lý responsive fit tỉ lệ màn hình, né tai thỏ (safe-area), hiển thị overlay nhắc xoay ngang thiết bị khi cầm dọc.",
+4,Platform Optimization,,,,,,TO DO,FT + Opt,"- Game chạy mượt mà, khung hình ổn định, không bị giật/khựng khi kích hoạt hiệu ứng hay mở popup.
+- Tối ưu dung lượng gói tải (build size) giúp vào game nhanh.
+- Optimize draw call và auto atlas.",
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+,,,,,,,,,,
+aRay,36,5.142857143,aRay,71,10.14285714,aRay,107,15.28571429,,
+Kira,28,4,Kira,76,10.85714286,Kira,104,14.85714286,,
+lkangr,24,3.428571429,lkangr,28,4,lkangr,52,7.428571429,,
+,,,,,,,,,,
+,,,,,,,,,,
+1st build,88,,Full Build,175,,TOTAL,263,,,
