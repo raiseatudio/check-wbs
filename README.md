@@ -37,9 +37,9 @@ Action gọi Gemini trước. Nếu Gemini lỗi, Action gọi DeepSeek tại `h
 
 ## Khi nào chạy
 
-Workflow được kích hoạt trên pull request (`opened`, `synchronize`, `reopened`) khi đổi file WBS, file GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch.
+Workflow chạy khi push lên nhánh, hoặc khi pull request được mở, cập nhật, mở lại, nếu file đổi là WBS, GDD, `SKILL.md`, script, hoặc chính workflow. Có thể chạy tay bằng workflow dispatch sau khi file workflow đã có trên nhánh mặc định.
 
-Test và review chỉ chạy khi commit mới nhất trên nhánh có chuỗi `[check]` dính liền với một đoạn ký tự, không có khoảng trắng ở giữa. Ví dụ message `update wbs [check]xxxxxxxx`. Commit không có chuỗi này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
+Test và review chỉ chạy khi commit mới nhất chứa chữ `[check]`. Đứng một mình cũng được. Commit không có chữ này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
 
 Job review cần `DISCORD_WEBHOOK_URL` và ít nhất một trong `GEMINI_API_KEY` hoặc `DEEPSEEK_API_KEY`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
 
