@@ -1,6 +1,6 @@
 """Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord.
 
-Nếu Gemini không gọi được, dùng OxionAI khi có OXION_API_KEY.
+Nếu Gemini không gọi được, dùng DeepSeek khi có DEEPSEEK_API_KEY.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ MAX_DISCORD_MESSAGES = 8
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
-OXION_URL = "https://www.oxionai.com/v1/chat/completions"
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "gemini-3.5-flash"
-DEFAULT_OXION_MODEL = "claude-opus-4.8"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
 WBS_TABLE_EXT = {".csv", ".tsv"}
 WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
 GDD_TEXT_EXT = {".txt", ".text", ".md", ".markdown", ".docx", ".rtf"}
@@ -487,10 +487,10 @@ def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
     return content
 
 
-def call_oxion(api_key: str, model: str, user_prompt: str) -> str:
+def call_deepseek(api_key: str, model: str, user_prompt: str) -> str:
     allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
     if not model or any(char not in allowed for char in model):
-        raise RuntimeError(f"Tên model OxionAI không hợp lệ: {model}")
+        raise RuntimeError(f"Tên model DeepSeek không hợp lệ: {model}")
     payload = {
         "model": model,
         "temperature": 0.2,
@@ -500,7 +500,7 @@ def call_oxion(api_key: str, model: str, user_prompt: str) -> str:
         ],
     }
     request = urllib.request.Request(
-        OXION_URL,
+        DEEPSEEK_URL,
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -513,39 +513,39 @@ def call_oxion(api_key: str, model: str, user_prompt: str) -> str:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"OxionAI trả về HTTP {exc.code}: {detail}") from None
+        raise RuntimeError(f"DeepSeek trả về HTTP {exc.code}: {detail}") from None
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"OxionAI không kết nối được: {exc.reason}") from None
+        raise RuntimeError(f"DeepSeek không kết nối được: {exc.reason}") from None
     data = json.loads(raw)
     try:
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("OxionAI không trả về nội dung review.") from exc
+        raise RuntimeError("DeepSeek không trả về nội dung review.") from exc
     if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("OxionAI trả về nội dung review rỗng.")
+        raise RuntimeError("DeepSeek trả về nội dung review rỗng.")
     return content.strip()
 
 
 def review_text(user_prompt: str) -> str:
     gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    oxion_key = os.environ.get("OXION_API_KEY", "").strip()
+    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     gemini_model = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
-    oxion_model = os.environ.get("OXION_MODEL", "").strip() or DEFAULT_OXION_MODEL
+    deepseek_model = os.environ.get("DEEPSEEK_MODEL", "").strip() or DEFAULT_DEEPSEEK_MODEL
     gemini_error: Exception | None = None
     if gemini_key:
         try:
             return call_gemini(gemini_key, gemini_model, user_prompt)
         except (RuntimeError, urllib.error.URLError) as exc:
             gemini_error = exc
-            print(f"Gemini không dùng được, chuyển sang OxionAI: {exc}", file=sys.stderr)
-    if oxion_key:
-        report = call_oxion(oxion_key, oxion_model, user_prompt)
+            print(f"Gemini không dùng được, chuyển sang DeepSeek: {exc}", file=sys.stderr)
+    if deepseek_key:
+        report = call_deepseek(deepseek_key, deepseek_model, user_prompt)
         if gemini_error is None:
             return report
-        return f"Gemini không gọi được, đã dùng OxionAI ({oxion_model}).\n\n{report}"
+        return f"Gemini không gọi được, đã dùng DeepSeek ({deepseek_model}).\n\n{report}"
     if gemini_error is not None:
-        raise RuntimeError(f"{gemini_error} Không có OXION_API_KEY để thay thế.")
-    raise RuntimeError("Thiếu GEMINI_API_KEY và OXION_API_KEY.")
+        raise RuntimeError(f"{gemini_error} Không có DEEPSEEK_API_KEY để thay thế.")
+    raise RuntimeError("Thiếu GEMINI_API_KEY và DEEPSEEK_API_KEY.")
 
 
 def repo_root() -> Path:

@@ -72,35 +72,35 @@ class DiscordReportTest(unittest.TestCase):
         self.assertTrue(chunks[0].startswith("(1/"))
 
 
-class OxionFallbackTest(unittest.TestCase):
+class DeepSeekFallbackTest(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("GEMINI_API_KEY", None)
-        os.environ.pop("OXION_API_KEY", None)
-        os.environ.pop("OXION_MODEL", None)
+        os.environ.pop("DEEPSEEK_API_KEY", None)
+        os.environ.pop("DEEPSEEK_MODEL", None)
 
-    def test_gemini_failure_uses_oxion(self):
+    def test_gemini_failure_uses_deepseek(self):
         os.environ["GEMINI_API_KEY"] = "gemini"
-        os.environ["OXION_API_KEY"] = "oxion"
+        os.environ["DEEPSEEK_API_KEY"] = "deepseek"
         original_gemini = check_wbs.call_gemini
-        original_oxion = check_wbs.call_oxion
+        original_deepseek = check_wbs.call_deepseek
 
         def fail_gemini(api_key, model, prompt):
             raise RuntimeError("Gemini trả về HTTP 401: expired")
 
-        def use_oxion(api_key, model, prompt):
-            self.assertEqual(api_key, "oxion")
-            self.assertEqual(model, "claude-opus-4.8")
-            return "báo cáo oxion"
+        def use_deepseek(api_key, model, prompt):
+            self.assertEqual(api_key, "deepseek")
+            self.assertEqual(model, "deepseek-chat")
+            return "báo cáo deepseek"
 
         check_wbs.call_gemini = fail_gemini
-        check_wbs.call_oxion = use_oxion
+        check_wbs.call_deepseek = use_deepseek
         try:
             text = review_text("prompt")
         finally:
             check_wbs.call_gemini = original_gemini
-            check_wbs.call_oxion = original_oxion
-        self.assertIn("đã dùng OxionAI (claude-opus-4.8)", text)
-        self.assertIn("báo cáo oxion", text)
+            check_wbs.call_deepseek = original_deepseek
+        self.assertIn("đã dùng DeepSeek (deepseek-chat)", text)
+        self.assertIn("báo cáo deepseek", text)
 
 
 if __name__ == "__main__":
