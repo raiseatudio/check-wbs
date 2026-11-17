@@ -22,7 +22,7 @@ GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
 WBS_TABLE_EXT = {".csv", ".tsv"}
 WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
