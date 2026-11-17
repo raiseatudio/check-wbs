@@ -10,7 +10,7 @@ II,Setup,,,,,,,,,
 1,Clone Project,lkangr,4/11/2026,11/4/2026,,,DONE,,,
 2,Setup Project,Ray,11/5/2026,11/6/2026,4,4,DONE,,"- Nhóm các asset cũ(images, fonts, spines) sang thư mục Old.
 - Sửa tên các scenes(Loading và Main)
-- Đồng bộ project với 2982 v213 đến hết ngày 04/11/2026
+- Đồng bộ project với 2982 v213 đến hết  ngày 04/11/2026
 - Xóa phần liên quan 3D(3D node trên mainScene, và 3D scripts, update logic)",
 B,PHASE 1: MVP BUILD (CORE LOGIC & NETWORK),,,,,,,,,
 I,Game Network,,,,,,,,,
