@@ -15,7 +15,7 @@ II,Setup,,,,,,,,,
 B,PHASE 1: MVP BUILD (CORE LOGIC & NETWORK),,,,,,,,,
 I,Game Network,,,,,,,,,
 1,Game Network & Data Parser,lkangr,,,4,,TO DO,1st Build,"- Khởi tạo GameNetwork đăng ký đủ packet: Join, Bet, Action/Open, Cashout, ForceEnd.
-- Parse chính xác payload từ server thành DataStore (PlayerInfo, RoundData).
+- Parse chính xác payload từ server thành DataStore  (PlayerInfo, RoundData).
 - Bắt lỗi timeout/rớt socket và show log rõ ràng.",
 2,BE Contract Integration,lkangr,,,4,,TO DO,1st Build,"- Khai báo và map đủ 100% Command ID khớp tài liệu Contract BE.
 - Request gửi đi và Response nhận về đúng kiểu dữ liệu (không lỗi undefined/NaN ở các trường tiền, tỉ lệ, ID).
