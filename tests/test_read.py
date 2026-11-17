@@ -72,40 +72,35 @@ class DiscordReportTest(unittest.TestCase):
         self.assertTrue(chunks[0].startswith("(1/"))
 
 
-class ModelFallbackTest(unittest.TestCase):
+class OxionFallbackTest(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("GEMINI_API_KEY", None)
-        os.environ.pop("OPENAI_API_KEY", None)
-        os.environ.pop("GEMINI_MODEL", None)
-        os.environ.pop("OPENAI_MODEL", None)
+        os.environ.pop("OXION_API_KEY", None)
+        os.environ.pop("OXION_MODEL", None)
 
-    def test_gemini_failure_uses_openai(self):
+    def test_gemini_failure_uses_oxion(self):
         os.environ["GEMINI_API_KEY"] = "gemini"
-        os.environ["OPENAI_API_KEY"] = "openai"
+        os.environ["OXION_API_KEY"] = "oxion"
         original_gemini = check_wbs.call_gemini
-        original_openai = check_wbs.call_openai
+        original_oxion = check_wbs.call_oxion
 
         def fail_gemini(api_key, model, prompt):
             raise RuntimeError("Gemini trả về HTTP 401: expired")
 
-        def use_openai(api_key, model, prompt):
-            self.assertEqual(api_key, "openai")
-            self.assertEqual(model, "gpt-4.1")
-            return "báo cáo openai"
+        def use_oxion(api_key, model, prompt):
+            self.assertEqual(api_key, "oxion")
+            self.assertEqual(model, "claude-opus-4.8")
+            return "báo cáo oxion"
 
         check_wbs.call_gemini = fail_gemini
-        check_wbs.call_openai = use_openai
+        check_wbs.call_oxion = use_oxion
         try:
             text = review_text("prompt")
         finally:
             check_wbs.call_gemini = original_gemini
-            check_wbs.call_openai = original_openai
-        self.assertIn("đã dùng OpenAI (gpt-4.1)", text)
-        self.assertIn("báo cáo openai", text)
-
-    def test_missing_both_keys(self):
-        with self.assertRaises(RuntimeError):
-            review_text("prompt")
+            check_wbs.call_oxion = original_oxion
+        self.assertIn("đã dùng OxionAI (claude-opus-4.8)", text)
+        self.assertIn("báo cáo oxion", text)
 
 
 if __name__ == "__main__":

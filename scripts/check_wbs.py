@@ -1,6 +1,6 @@
 """Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord.
 
-Nếu Gemini hết hạn hoặc không gọi được, dùng OpenAI khi có OPENAI_API_KEY.
+Nếu Gemini không gọi được, dùng OxionAI khi có OXION_API_KEY.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ MAX_DISCORD_MESSAGES = 8
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+OXION_URL = "https://www.oxionai.com/v1/chat/completions"
 DEFAULT_MODEL = "gemini-3.5-flash"
-DEFAULT_OPENAI_MODEL = "gpt-4.1"
+DEFAULT_OXION_MODEL = "claude-opus-4.8"
 WBS_TABLE_EXT = {".csv", ".tsv"}
 WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
 GDD_TEXT_EXT = {".txt", ".text", ".md", ".markdown", ".docx", ".rtf"}
@@ -447,16 +447,22 @@ def publish(body: str, root: Path, inventory: Inventory) -> None:
     post_discord(webhook, report)
 
 
-def valid_model_name(model: str) -> bool:
+def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
     allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
-    return bool(model) and all(char in allowed for char in model)
-
-
-def post_json(url: str, payload: dict, headers: dict, failure: str) -> dict:
+    if not model or any(char not in allowed for char in model):
+        raise RuntimeError(f"Tên model Gemini không hợp lệ: {model}")
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": 0.2},
+    }
     request = urllib.request.Request(
-        url,
+        GEMINI_URL.format(model=model),
         data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
+        headers={
+            "x-goog-api-key": api_key,
+            "Content-Type": "application/json",
+        },
         method="POST",
     )
     try:
@@ -464,32 +470,9 @@ def post_json(url: str, payload: dict, headers: dict, failure: str) -> dict:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"{failure} HTTP {exc.code}: {detail}") from None
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"{failure} không kết nối được: {exc.reason}") from None
+        raise RuntimeError(f"Gemini trả về HTTP {exc.code}: {detail}") from exc
     data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise RuntimeError(f"{failure} không trả về JSON hợp lệ.")
-    return data
-
-
-def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
-    if not valid_model_name(model):
-        raise RuntimeError(f"Tên model Gemini không hợp lệ: {model}")
-    data = post_json(
-        GEMINI_URL.format(model=model),
-        {
-            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.2},
-        },
-        {
-            "x-goog-api-key": api_key,
-            "Content-Type": "application/json",
-        },
-        "Gemini trả về",
-    )
-    candidates = data.get("candidates")
+    candidates = data.get("candidates") if isinstance(data, dict) else None
     if not candidates:
         raise RuntimeError("Gemini không trả về nội dung review.")
     parts = candidates[0].get("content", {}).get("parts", [])
@@ -504,54 +487,65 @@ def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
     return content
 
 
-def call_openai(api_key: str, model: str, user_prompt: str) -> str:
-    if not valid_model_name(model):
-        raise RuntimeError(f"Tên model OpenAI không hợp lệ: {model}")
-    data = post_json(
-        OPENAI_URL,
-        {
-            "model": model,
-            "temperature": 0.2,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-        },
-        {
+def call_oxion(api_key: str, model: str, user_prompt: str) -> str:
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+    if not model or any(char not in allowed for char in model):
+        raise RuntimeError(f"Tên model OxionAI không hợp lệ: {model}")
+    payload = {
+        "model": model,
+        "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    request = urllib.request.Request(
+        OXION_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        "OpenAI trả về",
+        method="POST",
     )
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:2000]
+        raise RuntimeError(f"OxionAI trả về HTTP {exc.code}: {detail}") from None
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"OxionAI không kết nối được: {exc.reason}") from None
+    data = json.loads(raw)
     try:
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("OpenAI không trả về nội dung review.") from exc
+        raise RuntimeError("OxionAI không trả về nội dung review.") from exc
     if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("OpenAI trả về nội dung review rỗng.")
+        raise RuntimeError("OxionAI trả về nội dung review rỗng.")
     return content.strip()
 
 
 def review_text(user_prompt: str) -> str:
     gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    oxion_key = os.environ.get("OXION_API_KEY", "").strip()
     gemini_model = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
-    openai_model = os.environ.get("OPENAI_MODEL", "").strip() or DEFAULT_OPENAI_MODEL
-    gemini_error: RuntimeError | None = None
+    oxion_model = os.environ.get("OXION_MODEL", "").strip() or DEFAULT_OXION_MODEL
+    gemini_error: Exception | None = None
     if gemini_key:
         try:
             return call_gemini(gemini_key, gemini_model, user_prompt)
-        except RuntimeError as exc:
+        except (RuntimeError, urllib.error.URLError) as exc:
             gemini_error = exc
-            print(f"Gemini không dùng được, chuyển sang OpenAI: {exc}", file=sys.stderr)
-    if openai_key:
-        report = call_openai(openai_key, openai_model, user_prompt)
+            print(f"Gemini không dùng được, chuyển sang OxionAI: {exc}", file=sys.stderr)
+    if oxion_key:
+        report = call_oxion(oxion_key, oxion_model, user_prompt)
         if gemini_error is None:
             return report
-        return f"Gemini không gọi được, đã dùng OpenAI ({openai_model}).\n\n{report}"
+        return f"Gemini không gọi được, đã dùng OxionAI ({oxion_model}).\n\n{report}"
     if gemini_error is not None:
-        raise RuntimeError(f"{gemini_error} Không có OPENAI_API_KEY để thay thế.")
-    raise RuntimeError("Thiếu GEMINI_API_KEY và OPENAI_API_KEY.")
+        raise RuntimeError(f"{gemini_error} Không có OXION_API_KEY để thay thế.")
+    raise RuntimeError("Thiếu GEMINI_API_KEY và OXION_API_KEY.")
 
 
 def repo_root() -> Path:
