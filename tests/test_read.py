@@ -1,4 +1,3 @@
-import os
 import sys
 import tempfile
 import unittest
@@ -7,8 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import check_wbs
-from check_wbs import discord_chunks, is_discord_webhook, read_limited, review_text
+from check_wbs import discord_chunks, is_discord_webhook, read_limited
 
 
 DOCX_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -70,37 +68,6 @@ class DiscordReportTest(unittest.TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 2000)
         self.assertTrue(chunks[0].startswith("(1/"))
-
-
-class DeepSeekFallbackTest(unittest.TestCase):
-    def tearDown(self):
-        os.environ.pop("GEMINI_API_KEY", None)
-        os.environ.pop("DEEPSEEK_API_KEY", None)
-        os.environ.pop("DEEPSEEK_MODEL", None)
-
-    def test_gemini_failure_uses_deepseek(self):
-        os.environ["GEMINI_API_KEY"] = "gemini"
-        os.environ["DEEPSEEK_API_KEY"] = "deepseek"
-        original_gemini = check_wbs.call_gemini
-        original_deepseek = check_wbs.call_deepseek
-
-        def fail_gemini(api_key, model, prompt):
-            raise RuntimeError("Gemini trả về HTTP 401: expired")
-
-        def use_deepseek(api_key, model, prompt):
-            self.assertEqual(api_key, "deepseek")
-            self.assertEqual(model, "deepseek-chat")
-            return "báo cáo deepseek"
-
-        check_wbs.call_gemini = fail_gemini
-        check_wbs.call_deepseek = use_deepseek
-        try:
-            text = review_text("prompt")
-        finally:
-            check_wbs.call_gemini = original_gemini
-            check_wbs.call_deepseek = original_deepseek
-        self.assertIn("đã dùng DeepSeek (deepseek-chat)", text)
-        self.assertIn("báo cáo deepseek", text)
 
 
 if __name__ == "__main__":
