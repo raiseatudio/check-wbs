@@ -6,7 +6,8 @@ Tài liệu này là bộ luật duy nhất để review WBS đối chiếu vớ
 
 WBS là bảng CSV hoặc TSV, không có schema cố định. Cột do Google Sheet export quyết định. GDD có thể là bảng CSV/TSV hoặc văn bản TXT, MD, DOCX, RTF. Không giả định GDD có cột.
 
-- Với WBS, dòng header là dòng chứa tên cột, không phải lúc nào cũng là dòng đầu file. Bảng có thể có vài dòng tiêu đề phía trên (tên template, link). Nếu không chắc dòng nào là header, nêu giả định rồi mới kết luận.
+- Với WBS, dòng header là dòng chứa tên cột, không phải lúc nào cũng là dòng đầu file. Bảng có thể có vài dòng tiêu đề phía trên (tên game, link). Nếu không chắc dòng nào là header, nêu giả định rồi mới kết luận.
+- WBS mẫu của dự án có header: `STT`, `TASK TITLE`, `ASSIGNEE`, `START DATE`, `END DATE`, `ESTIMATE TIME (Hour)`, `ACTUAL TIME (Hour)`, `STATUS`, `BUILD`, `Definition of Done`, `NOTE`. `STT` có thể trùng, nhận task bằng `TASK TITLE`. `BUILD` là mốc `1st Build`, `Full Build` hoặc `FT + Opt`. `STATUS` là `DROP` thì task đã bỏ khỏi phạm vi còn lại.
 - Đọc tên cột đúng như header. Không đổi tên cột và không giả định một cột tồn tại nếu header không có.
 - Với GDD dạng văn bản, đọc theo đoạn và dòng. Trích dẫn tên file, số dòng, và câu hoặc mục trong tài liệu.
 - Một dòng là task khi có tên việc và đó là việc phải bàn giao. Dòng đầu mục (phase, nhóm) chỉ gom các task con: thường chỉ có mã và tên, các cột việc để trống, và có dòng con bên dưới. Đầu mục không phải task. Mã dạng chữ (A, B) hoặc số La Mã (I, II) có thể là đầu mục hoặc task; phân biệt bằng cột việc và việc có dòng con hay không.
@@ -68,13 +69,237 @@ Luật này chỉ áp dụng cho task. Dòng đầu mục không bắt buộc DO
 
 DOD đạt khi:
 
-- Ô không trống.
+- tên task phải thể hiện rõ output hoặc thông tin trong cột DOD phải thể hiện rõ output.
 - Nêu output quan sát được: cái được tạo ra, hành vi đúng, dữ liệu đúng, hoặc điều kiện để coi task là xong.
 - Mỗi ý kiểm được. Không chỉ lặp lại tên task.
 
 DOD không đạt khi ô trống, hoặc nội dung không nói output là gì. Coi là chưa rõ nếu chỉ ghi "xong", "done", "hoàn thành", "TBD", "làm xong", hoặc một cụm chung không mô tả sản phẩm bàn giao.
 
 Ngưỡng: đã chốt. Áp dụng cho mọi task, kể cả task đang để trạng thái chưa làm.
+
+## Tính năng cần có
+
+Mỗi mục dưới đây là một task cần có trong WBS, viết theo cùng format: tên tính năng, rồi các ý output. DOD của task phải phủ các ý đó. Thiếu task, thiếu ý, hoặc DOD không nói được output thì ghi vào lỗi cấu trúc và danh sách sửa. Dòng phase và dòng nhóm không nằm trong danh sách này.
+
+### Tính năng Create WBS
+
+- danh sách task chia nhỏ cho dự án
+- xác định DoD cho từng task
+
+### Tính năng Clone Project
+
+- file mẫu chưa ghi output; không suy diễn DOD, vẫn bắt thiếu DOD nếu ô trống
+
+### Tính năng Setup Project
+
+- đối với WBS làm từ đầu:
+    + dựng scenes: loading, main
+    + add components resize canvas
+- đối với WBS cho project reskin/clone từ 1 game khác
+    + nhóm asset cũ (images, fonts, spines) sang thư mục Old
+    + sửa tên scene, script
+    + remove các phần không còn liên quan
+    + chuyển đổi giữa landscape và portrait (nếu có)
+
+### Tính năng Game Network & Data Parser 
+
+- GameNetwork đăng ký đủ packet 
+- parse payload server thành DataStore
+
+### Tính năng BE Contract Integration 
+
+- map đủ Command ID theo tài liệu Contract BE
+- request và response đúng kiểu dữ liệu tiền, tỉ lệ, ID
+- map Error Codes từ BE ra đúng Toast hoặc Dialog
+- log request/response để đối soát DEV/STG
+
+### Tính năng Core Game Loop 
+
+- state chuyển INIT, BETTING, PLAYING, RESULT/POWERMODE
+- event giữa Controller và View không leak state
+
+### Tính năng Betting Logic 
+
+- gửi request Bet, trừ pending wallet đúng số tiền
+- chặn cược khi số dư ví nhỏ hơn bet value
+- chặn spam click
+
+### Tính năng Setup build iframe 
+
+- setup game lên config build, sẵn sàng build game
+
+### Tính năng Logic resize resolution 
+
+- game resize khớp các resolution
+- không mất UI ở các tỉ lệ màn hình
+
+### Tính năng LoadingUI 
+
+- layout đúng Logo và background art game mới
+- progress bar từ 0% đến 100%
+- tự chuyển sang Main.scene khi nạp xong và socket thành công
+
+### Tính năng Background Layer 
+
+- ráp các layer background tĩnh
+- scale và widget vừa trên các tỉ lệ màn hình
+
+### Tính năng CommonUI 
+
+- hiển thị ID ván, tình trạng mạng, số dư ví
+- số dư tự cập nhật khi cược, thắng, hoặc server push ví
+
+### Tính năng BetUI 
+
+- tăng giảm cược
+- lưu BetAmount khi chọn mức cược
+
+### Tính năng Start Button / Cashout Button 
+
+- Start mở tương tác ở BettingState, khóa khi bắt đầu chơi
+- chặn click liên tục và phát SFX click hoặc cược
+- layout nút Cash out kèm label tiền thắng tạm tính
+
+### Tính năng Jackpot & Bonus 
+
+- hiển thị số tiền jackpot và bonus hiện có
+- tự cập nhật khi server push
+
+### Tính năng AutoPlay UI
+
+- layout popup Auto Play
+- thanh slider, nút Confirm, Clear, và ButtonStopAuto
+
+### Tính năng PowerMode UI
+
+- layout popup PowerMode
+- toggle TogglePowerMode
+- popup ConfirmPowerMode
+- popup PowerModeResult
+
+### Tính năng Promotion UI 
+
+- tag số lượt Free Bet còn lại nằm trên nút cược
+
+### Tính năng PopupPromotion 
+
+- popup đúng 2 template text newPromotion/resetPromotion
+- nhãn đếm số lượt free plays còn lại (labelRemainPromo) 
+
+### Tính năng Promotion Flow Logic 
+
+- khóa chuyển bet khi có promotion, hiện đúng số lượt promotion
+- offline claim: vào game thì hiện popup
+- online claim: xong ván hiện tại mới hiện popup
+- bấm Confirm thì cược không trừ ví, khóa nút tăng giảm
+- hết lượt thì mở khóa nút cược, quay về ví thật, lưu tag vào Bet History
+- expired: hiện toast và nút Start về normal
+
+### Tính năng PopupSetting
+
+- bật tắt BGM và SFX độc lập
+- HelpInfo, Bet History, Jackpot History, Exit mở đúng popup
+- ẩn nút Exit trên Iframe
+
+### Tính năng PopupHistory (must have)
+
+- lịch sử cược phân trang và xem chi tiết, nút xóa lịch sử cược
+- bấm một dòng xem được ô đã mở, tiền cược, tiền thắng
+
+### Tính năng PopupJackpotHistory 
+
+- danh sách lịch sử jackpot phân trang theo API
+
+### Tính năng PopupHelpInfo (must have)
+
+- đủ các trang luật chơi
+
+### Tính năng Dialog (must have)
+
+- dialog lỗi hệ thống: mất kết nối, force exit
+- nút bấm có callback
+
+### Tính năng Toast 
+
+- toast đúng trạng thái mất mạng, cược lỗi
+
+### Tính năng AutoPlay Logic
+
+- nhận số ô mở ngẫu nhiên từ popup và tự chơi, không cần click
+- chạy đúng theo logic của 1 lượt chơi
+- ButtonStopAuto dừng auto ngay
+- lưu lại thông tin auto, load khi mở lên lần đầu
+
+### Tính năng PowerMode Logic 
+
+- tính năng Powermode theo mô tả từ GDD
+- có hiển thị thắng/thua rõ ràng
+- tổng kết thông tin Powermode để hiển thị ở PowerModeResult
+- PopupPowerModeResult hiện đúng tổng tiền thắng khi kết thúc hoặc bấm Stop
+
+### Tính năng Reconnect & Resume Logic (must have)
+
+- F5 hoặc reload khôi phục ván dở: render lại trạng thái game hiện tại theo data từ server
+- ẩn tab hơn 60 giây rồi quay lại không kẹt game, tự đồng bộ session từ server
+- ván kết thúc lúc mất mạng thì reconnect nhảy về màn Result
+
+### Tính năng AFK/Idle
+
+- không thao tác đến giây 40 thì toast cảnh báo nhấp nháy, kèm đếm ngược 10 giây ở giây 50 đến 60
+- người chơi thao tác lại thì hủy cảnh báo và reset timer
+- nội dung toast và thời gian khớp giữa client và server
+
+### Tính năng BO Integration (must have)
+
+- REST API BO đúng auth token, URL param và môi trường DEV/STG/PROD
+- phân trang, format ngày giờ, tiền tệ, tag Promotion
+- bấm dòng lịch sử cược mở đúng chi tiết ván
+- có Loading và empty state "Không có dữ liệu"
+- lỗi mạng hoặc timeout 4 giây thì tắt loading, không treo popup, vẫn đóng được popup
+
+### Tính năng Gameplay Tutorial 
+
+- hướng dẫn đủ và đúng cách chơi
+- vào lại tutorial trong Help Info
+
+### Tính năng AutoMode Tutorial 
+
+- hướng dẫn đủ và đúng cách chơi automode
+- vào lại tutorial trong Auto Popup
+
+### Tính năng Exit Game & Lifecycle Cleanup (must have)
+
+- thoát về Portal hoặc đóng game thì dừng tween và hủy các hàm đếm thời gian
+- chuyển màn không crash
+
+### Tính năng Bonus & Jackpot Presentation 
+
+- Jackpot Spine chạy mượt
+- số chạy tăng dần đúng tiền thắng
+- có nút Skip hoặc tự đóng sau timeout
+
+### Tính năng Win Result Popup (must have)
+
+- Win Spine chạy mượt
+- số chạy tăng dần đúng tiền thắng
+- có nút Skip hoặc tự đóng sau timeout
+
+### Tính năng Apply SFXs (must have)
+
+- đủ BGM và SFX
+- mute và unmute đúng cài đặt
+
+### Tính năng Multi-Platform Build Setup (must have)
+
+- Iframe 
+- WebApp và Mobile fit tỉ lệ màn hình, né tai thỏ
+- check các common theo orientation 
+
+### Tính năng Platform Optimization (must have)
+
+- khung hình ổn định, không giật khi bật hiệu ứng hoặc mở popup
+- tối ưu dung lượng gói tải
+- optimize draw call và auto atlas
 
 ## Khuôn báo cáo
 
@@ -97,3 +322,4 @@ Liệt kê task không đạt các tiêu chí ở trên. Mỗi ý gồm file WBS
 ### Danh sách sửa
 
 Mỗi mục là một việc cần sửa: file, dòng hoặc mã, đề xuất sửa cụ thể. Nếu không cần sửa, ghi "Không có mục cần sửa."
+
