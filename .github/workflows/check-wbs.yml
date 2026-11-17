@@ -87,7 +87,7 @@ jobs:
 
   review:
     needs: [gate, test]
-    if: needs.gate.outputs.run == 'true' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
