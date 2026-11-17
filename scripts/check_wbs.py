@@ -1,7 +1,4 @@
-"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord.
-
-Nếu Gemini không gọi được, dùng DeepSeek khi có DEEPSEEK_API_KEY.
-"""
+"""Đọc WBS và GDD, gọi Gemini theo SKILL.md, rồi gửi báo cáo vào Discord."""
 
 from __future__ import annotations
 
@@ -21,9 +18,14 @@ MAX_DISCORD_MESSAGES = 8
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
-DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
-DEFAULT_MODEL = "gemini-3.5-flash"
-DEFAULT_DEEPSEEK_MODEL = "deepseek-chat"
+GEMINI_MODELS = (
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+)
+RETRYABLE_GEMINI_STATUS = {404, 429, 500, 502, 503, 504}
 WBS_TABLE_EXT = {".csv", ".tsv"}
 WBS_UNSUPPORTED_EXT = {".xlsx", ".xls", ".xlsm", ".ods"}
 GDD_TEXT_EXT = {".txt", ".text", ".md", ".markdown", ".docx", ".rtf"}
@@ -447,6 +449,13 @@ def publish(body: str, root: Path, inventory: Inventory) -> None:
     post_discord(webhook, report)
 
 
+class GeminiHTTPError(RuntimeError):
+    def __init__(self, status: int, detail: str, retryable: bool):
+        super().__init__(f"Gemini trả về HTTP {status}: {detail}")
+        self.status = status
+        self.retryable = retryable
+
+
 def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
     allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
     if not model or any(char not in allowed for char in model):
@@ -470,11 +479,11 @@ def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"Gemini trả về HTTP {exc.code}: {detail}") from exc
+        raise GeminiHTTPError(exc.code, detail, exc.code in RETRYABLE_GEMINI_STATUS) from None
     data = json.loads(raw)
     candidates = data.get("candidates") if isinstance(data, dict) else None
     if not candidates:
-        raise RuntimeError("Gemini không trả về nội dung review.")
+        raise GeminiHTTPError(503, "không trả về nội dung review.", True)
     parts = candidates[0].get("content", {}).get("parts", [])
     texts = [
         part.get("text", "")
@@ -483,69 +492,43 @@ def call_gemini(api_key: str, model: str, user_prompt: str) -> str:
     ]
     content = "".join(texts).strip()
     if not content:
-        raise RuntimeError("Gemini trả về nội dung review rỗng.")
+        raise GeminiHTTPError(503, "nội dung review rỗng.", True)
     return content
 
 
-def call_deepseek(api_key: str, model: str, user_prompt: str) -> str:
-    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
-    if not model or any(char not in allowed for char in model):
-        raise RuntimeError(f"Tên model DeepSeek không hợp lệ: {model}")
-    payload = {
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-    }
-    request = urllib.request.Request(
-        DEEPSEEK_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:2000]
-        raise RuntimeError(f"DeepSeek trả về HTTP {exc.code}: {detail}") from None
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"DeepSeek không kết nối được: {exc.reason}") from None
-    data = json.loads(raw)
-    try:
-        content = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("DeepSeek không trả về nội dung review.") from exc
-    if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("DeepSeek trả về nội dung review rỗng.")
-    return content.strip()
+def gemini_model_order() -> list[str]:
+    models: list[str] = []
+    pinned = os.environ.get("GEMINI_MODEL", "").strip()
+    if pinned:
+        models.append(pinned)
+    for model in GEMINI_MODELS:
+        if model not in models:
+            models.append(model)
+    return models
 
 
-def review_text(user_prompt: str) -> str:
-    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    gemini_model = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
-    deepseek_model = os.environ.get("DEEPSEEK_MODEL", "").strip() or DEFAULT_DEEPSEEK_MODEL
-    gemini_error: Exception | None = None
-    if gemini_key:
+def review_with_gemini(api_key: str, user_prompt: str) -> str:
+    errors: list[str] = []
+    models = gemini_model_order()
+    for index, model in enumerate(models):
         try:
-            return call_gemini(gemini_key, gemini_model, user_prompt)
-        except (RuntimeError, urllib.error.URLError) as exc:
-            gemini_error = exc
-            print(f"Gemini không dùng được, chuyển sang DeepSeek: {exc}", file=sys.stderr)
-    if deepseek_key:
-        report = call_deepseek(deepseek_key, deepseek_model, user_prompt)
-        if gemini_error is None:
+            report = call_gemini(api_key, model, user_prompt)
+        except GeminiHTTPError as exc:
+            errors.append(f"{model}: {exc}")
+            print(f"Gemini {model} không dùng được: {exc}", file=sys.stderr)
+            if not exc.retryable:
+                raise
+            continue
+        except urllib.error.URLError as exc:
+            errors.append(f"{model}: không kết nối được ({exc.reason})")
+            print(f"Gemini {model} không kết nối được: {exc.reason}", file=sys.stderr)
+            continue
+        if index == 0:
             return report
-        return f"Gemini không gọi được, đã dùng DeepSeek ({deepseek_model}).\n\n{report}"
-    if gemini_error is not None:
-        raise RuntimeError(f"{gemini_error} Không có DEEPSEEK_API_KEY để thay thế.")
-    raise RuntimeError("Thiếu GEMINI_API_KEY và DEEPSEEK_API_KEY.")
+        skipped = ", ".join(models[:index])
+        return f"Đã dùng Gemini `{model}` vì model cao hơn không phản hồi ({skipped}).\n\n{report}"
+    joined = "; ".join(errors)
+    raise RuntimeError(f"Gemini không gọi được với các model đã thử. {joined}")
 
 
 def repo_root() -> Path:
@@ -575,7 +558,11 @@ def run() -> int:
         publish("SKILL.md đang trống. Hãy điền bộ luật review trước khi chạy.", root, inventory)
         return 1
 
-    report = review_text(build_user_prompt(skill, root, inventory))
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        publish("Thiếu secret GEMINI_API_KEY. Không gọi Gemini.", root, inventory)
+        return 1
+    report = review_with_gemini(api_key, build_user_prompt(skill, root, inventory))
     publish(report, root, inventory)
     return 0
 

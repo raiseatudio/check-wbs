@@ -29,11 +29,18 @@ Trong repo trên GitHub:
 
 1. Vào Settings → Secrets and variables → Actions → New repository secret.
 2. Tên: `GEMINI_API_KEY`. Giá trị là auth key tạo trong Google AI Studio. Không dán key vào file trong repo.
-3. Tên: `DEEPSEEK_API_KEY`. Key DeepSeek. Dùng khi Gemini không gọi được, hoặc khi không có key Gemini. Không dán key vào file trong repo.
-4. Tên: `DISCORD_WEBHOOK_URL`. Giá trị là URL webhook của kênh Discord. Không dán URL vào file trong repo.
-5. Tùy chọn: biến `GEMINI_MODEL`, mặc định `gemini-3.5-flash`. Biến `DEEPSEEK_MODEL`, mặc định `deepseek-chat`.
+3. Tên: `DISCORD_WEBHOOK_URL`. Giá trị là URL webhook của kênh Discord. Không dán URL vào file trong repo.
+4. Tùy chọn: biến `GEMINI_MODEL`. Nếu có, model này được thử trước, rồi mới đến danh sách mặc định.
 
-Action gọi Gemini trước. Nếu Gemini lỗi, Action gọi DeepSeek tại `https://api.deepseek.com/chat/completions` và ghi một dòng ở đầu báo cáo Discord. Cần ít nhất một trong hai key.
+Action gọi Gemini theo thứ tự từ cao xuống thấp. Model gặp lỗi quá tải, hết quota tạm thời, hoặc không tồn tại thì chuyển sang model kế tiếp:
+
+1. `gemini-3.5-flash`
+2. `gemini-3.5-flash-lite`
+3. `gemini-3.1-flash-lite`
+4. `gemini-2.5-flash`
+5. `gemini-2.5-flash-lite`
+
+Báo cáo Discord ghi model đã dùng khi không phải model đầu tiên.
 
 ## Khi nào chạy
 
@@ -41,7 +48,7 @@ Workflow chạy khi push lên nhánh, hoặc khi pull request được mở, c�
 
 Test và review chỉ chạy khi commit mới nhất chứa chữ `[check]`. Đứng một mình cũng được. Commit không có chữ này thì workflow dừng, không gọi test, không gọi Gemini, không gửi Discord.
 
-Job review cần `DISCORD_WEBHOOK_URL` và ít nhất một trong `GEMINI_API_KEY` hoặc `DEEPSEEK_API_KEY`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
+Job review cần cả `GEMINI_API_KEY` và `DISCORD_WEBHOOK_URL`. Pull request từ fork không có các secret này nên bước review được bỏ qua.
 
 ## Đọc kết quả
 

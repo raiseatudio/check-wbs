@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import check_wbs
-from check_wbs import discord_chunks, is_discord_webhook, read_limited, review_text
+from check_wbs import GeminiHTTPError, discord_chunks, is_discord_webhook, read_limited, review_with_gemini
 
 
 DOCX_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -72,35 +72,36 @@ class DiscordReportTest(unittest.TestCase):
         self.assertTrue(chunks[0].startswith("(1/"))
 
 
-class DeepSeekFallbackTest(unittest.TestCase):
+class GeminiModelOrderTest(unittest.TestCase):
     def tearDown(self):
-        os.environ.pop("GEMINI_API_KEY", None)
-        os.environ.pop("DEEPSEEK_API_KEY", None)
-        os.environ.pop("DEEPSEEK_MODEL", None)
+        os.environ.pop("GEMINI_MODEL", None)
 
-    def test_gemini_failure_uses_deepseek(self):
-        os.environ["GEMINI_API_KEY"] = "gemini"
-        os.environ["DEEPSEEK_API_KEY"] = "deepseek"
-        original_gemini = check_wbs.call_gemini
-        original_deepseek = check_wbs.call_deepseek
+    def test_falls_through_high_demand(self):
+        calls = []
+        original = check_wbs.call_gemini
 
-        def fail_gemini(api_key, model, prompt):
-            raise RuntimeError("Gemini trả về HTTP 401: expired")
+        def fake_call(api_key, model, prompt):
+            calls.append(model)
+            if model != "gemini-2.5-flash":
+                raise GeminiHTTPError(503, "high demand", True)
+            return "báo cáo"
 
-        def use_deepseek(api_key, model, prompt):
-            self.assertEqual(api_key, "deepseek")
-            self.assertEqual(model, "deepseek-chat")
-            return "báo cáo deepseek"
-
-        check_wbs.call_gemini = fail_gemini
-        check_wbs.call_deepseek = use_deepseek
+        check_wbs.call_gemini = fake_call
         try:
-            text = review_text("prompt")
+            text = review_with_gemini("key", "prompt")
         finally:
-            check_wbs.call_gemini = original_gemini
-            check_wbs.call_deepseek = original_deepseek
-        self.assertIn("đã dùng DeepSeek (deepseek-chat)", text)
-        self.assertIn("báo cáo deepseek", text)
+            check_wbs.call_gemini = original
+        self.assertEqual(
+            calls,
+            [
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite",
+                "gemini-2.5-flash",
+            ],
+        )
+        self.assertIn("Đã dùng Gemini `gemini-2.5-flash`", text)
+        self.assertIn("báo cáo", text)
 
 
 if __name__ == "__main__":
