@@ -2,46 +2,8 @@ name: Check WBS
 
 on:
   push:
-    paths:
-      - "**/*.csv"
-      - "**/*.tsv"
-      - "**/*.xlsx"
-      - "**/*.xls"
-      - "**/*.xlsm"
-      - "**/*.ods"
-      - "**/*.txt"
-      - "**/*.text"
-      - "**/*.md"
-      - "**/*.markdown"
-      - "**/*.docx"
-      - "**/*.rtf"
-      - "**/*.doc"
-      - "**/*.pdf"
-      - "SKILL.md"
-      - "scripts/**"
-      - "tests/**"
-      - ".github/workflows/check-wbs.yml"
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "**/*.csv"
-      - "**/*.tsv"
-      - "**/*.xlsx"
-      - "**/*.xls"
-      - "**/*.xlsm"
-      - "**/*.ods"
-      - "**/*.txt"
-      - "**/*.text"
-      - "**/*.md"
-      - "**/*.markdown"
-      - "**/*.docx"
-      - "**/*.rtf"
-      - "**/*.doc"
-      - "**/*.pdf"
-      - "SKILL.md"
-      - "scripts/**"
-      - "tests/**"
-      - ".github/workflows/check-wbs.yml"
   workflow_dispatch:
 
 concurrency:
@@ -55,21 +17,20 @@ jobs:
       contents: read
     outputs:
       run: ${{ steps.marker.outputs.run }}
+      files: ${{ steps.marker.outputs.files }}
+      wbs: ${{ steps.marker.outputs.wbs }}
+      gdd: ${{ steps.marker.outputs.gdd }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
-      - name: Kiểm tra commit có [check]
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Kiểm tra lệnh trong commit
         id: marker
-        run: |
-          message="$(git log -1 --format=%B)"
-          if printf '%s\n' "$message" | grep -Fq '[check]'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Commit mới nhất không chứa [check]. Bỏ qua test và review." >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: python scripts/check_wbs.py --gate
 
   test:
     needs: gate
@@ -93,6 +54,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -108,12 +72,15 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "Thiếu secret GEMINI_API_KEY hoặc DISCORD_WEBHOOK_URL. Không chạy review." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Review WBS
+      - name: Review
         if: steps.key.outputs.present == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_RUN_ID: ${{ github.run_id }}
