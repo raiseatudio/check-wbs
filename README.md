@@ -47,12 +47,12 @@ Báo cáo Discord ghi model đã dùng khi không phải model đầu tiên.
 
 Action không mở trang đăng nhập. Tài khoản Google đăng nhập trên máy của bạn, rồi refresh token được lưu vào secret.
 
-1. Trên Google Cloud, bật Google Sheets API.
+1. Trên Google Cloud, bật Google Sheets API và Google Docs API.
 2. Màn hình consent để **Internal** nếu dùng Google Workspace, hoặc **Production**. Để **Testing** thì refresh token hết hạn sau 7 ngày.
 3. Tạo OAuth client loại **Desktop app**.
 4. Trên máy local, xuất `GOOGLE_OAUTH_CLIENT_ID` và `GOOGLE_OAUTH_CLIENT_SECRET`, rồi chạy `python scripts/google_login.py`.
-5. Đăng nhập tài khoản có quyền xem Sheet. Script in refresh token. Dán token vào secret `GOOGLE_OAUTH_REFRESH_TOKEN`.
-6. Scope chỉ là quyền đọc Google Sheet. Không commit client JSON, client secret, hay refresh token.
+5. Đăng nhập tài khoản có quyền xem Sheet và Doc. Script in refresh token. Dán token vào secret `GOOGLE_OAUTH_REFRESH_TOKEN`.
+6. Scope là quyền đọc Google Sheet và Google Doc. Không commit client JSON, client secret, hay refresh token. Token cũ chỉ có quyền Sheet thì chạy lại script sau khi thêm scope Doc trong mục Data Access.
 
 Token của app Internal hoặc Production còn dùng được khi Action chạy ít nhất một lần trong 6 tháng. Thu hồi quyền trên tài khoản Google hoặc tạo quá nhiều refresh token sẽ làm token cũ chết. Khi đó chạy lại `scripts/google_login.py`.
 
@@ -61,14 +61,14 @@ Token của app Internal hoặc Production còn dùng được khi Action chạy
 Workflow chạy khi push lên nhánh, khi pull request được mở, cập nhật, mở lại, hoặc khi bấm chạy tay sau khi file workflow đã có trên nhánh mặc định. Gate đọc message của commit mới nhất. Commit không có lệnh thì dừng, không gọi test, không gọi Gemini, không gửi Discord.
 
 - `[check]` đứng riêng: đọc file WBS và GDD trong repo, đối chiếu theo `skill_check_wbs.md`.
-- `[check-wbs]` kèm hai URL có nhãn: tải sheet WBS và sheet GDD, đối chiếu theo `skill_check_wbs.md`.
-- `[check-gdd]` kèm một URL có nhãn `gdd:`: tải sheet GDD, chấm chính tả, dấu câu và thông tin theo `skill_check_gdd.md`.
+- `[check-wbs]` kèm hai URL có nhãn: tải Google Sheet của WBS và Google Sheet hoặc Google Doc của GDD, đối chiếu theo `skill_check_wbs.md`.
+- `[check-gdd]` kèm một URL có nhãn `gdd:`: tải Google Sheet hoặc Google Doc của GDD, chấm chính tả, dấu câu và thông tin theo `skill_check_gdd.md`.
 
-`[check-wbs]` không bị hiểu thành `[check]`. Một commit có cả hai lệnh thì chạy cả hai và gửi hai báo cáo. Nhãn nhận `wbs:` / `gdd:` hoặc `wbs=` / `gdd=`. `gid` trong query hoặc `#gid=` chọn đúng tab. Không có `gid` thì lấy mọi tab.
+`[check-wbs]` không bị hiểu thành `[check]`. Một commit có cả hai lệnh thì chạy cả hai và gửi hai báo cáo. Nhãn nhận `wbs:` / `gdd:` hoặc `wbs=` / `gdd=`. URL `wbs` phải là Google Sheet. URL `gdd` được là Google Sheet hoặc Google Doc. `gid` trong query hoặc `#gid=` chọn đúng tab Sheet. `tab=` chọn đúng tab Doc. Không có `gid` hoặc `tab` thì lấy mọi tab.
 
 ```text
-[check-wbs] wbs: https://docs.google.com/spreadsheets/d/.../edit#gid=0 gdd: https://docs.google.com/spreadsheets/d/.../edit#gid=0
-[check-gdd] gdd: https://docs.google.com/spreadsheets/d/.../edit#gid=0
+[check-wbs] wbs: https://docs.google.com/spreadsheets/d/.../edit#gid=0 gdd: https://docs.google.com/document/d/.../edit
+[check-gdd] gdd: https://docs.google.com/document/d/.../edit
 ```
 
 Thiếu URL hoặc nhãn sai thì Discord nhận hướng dẫn và job thất bại.

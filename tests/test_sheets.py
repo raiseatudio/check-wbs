@@ -25,6 +25,10 @@ from check_wbs import (
 
 WBS_URL = "https://docs.google.com/spreadsheets/d/abcDEF_123/edit#gid=15"
 GDD_URL = "https://docs.google.com/spreadsheets/d/gddSheet_9/edit?gid=7#gid=3"
+DOC_URL = (
+    "https://docs.google.com/document/d/12onLlQLkP4CfhsR0j8nmECYek79x9RWk_9t4blx33sQ"
+    "/edit?tab=t.0#heading=h.n9zxywuies4v"
+)
 
 
 class CommitParserTest(unittest.TestCase):
@@ -77,6 +81,25 @@ class CommitParserTest(unittest.TestCase):
         self.assertEqual(request.wbs_link.spreadsheet_id, "abcDEF_123")
         self.assertEqual(request.gdd_link.spreadsheet_id, "abcDEF_123")
         self.assertEqual(request.gdd_link.gid, "15")
+
+    def test_gdd_can_be_a_google_doc(self):
+        request = parse_commit_message(f"[check-wbs] wbs: {WBS_URL} gdd: {DOC_URL}")
+        self.assertEqual(request.wbs_error, "")
+        self.assertEqual(request.wbs_link.kind, "sheet")
+        self.assertEqual(request.wbs_gdd_link.kind, "doc")
+        self.assertEqual(
+            request.wbs_gdd_link.spreadsheet_id,
+            "12onLlQLkP4CfhsR0j8nmECYek79x9RWk_9t4blx33sQ",
+        )
+        self.assertEqual(request.wbs_gdd_link.tab, "t.0")
+        gdd_only = parse_commit_message(f"[check-gdd] gdd: {DOC_URL}")
+        self.assertEqual(gdd_only.gdd_error, "")
+        self.assertEqual(gdd_only.gdd_link.kind, "doc")
+
+    def test_wbs_url_must_stay_a_sheet(self):
+        request = parse_commit_message(f"[check-wbs] wbs: {DOC_URL} gdd: {GDD_URL}")
+        self.assertIn("Google Sheet", request.wbs_error)
+        self.assertIsNone(request.wbs_link)
 
     def test_query_gid_when_hash_is_absent(self):
         link = parse_sheet_url("https://docs.google.com/spreadsheets/d/abcDEF_123/edit?gid=7")
@@ -132,6 +155,74 @@ class SheetCsvTest(unittest.TestCase):
         self.assertEqual(bundle.docs[0].name, "sheetId123/GDD")
         self.assertIn('"Làm, UI"', bundle.docs[0].text)
         self.assertEqual(len(seen), 2)
+
+    def test_fetch_google_doc_keeps_named_tab(self):
+        link = parse_commit_message(f"[check-gdd] gdd: {DOC_URL}").gdd_link
+
+        class FakeBody:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def read(self):
+                return json.dumps(self.payload).encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        def fake_urlopen(request, timeout=60):
+            self.assertIn("includeTabsContent=true", request.full_url)
+            self.assertIn("12onLlQLkP4CfhsR0j8nmECYek79x9RWk_9t4blx33sQ", request.full_url)
+            return FakeBody(
+                {
+                    "title": "[gsc00002 - FODB] GDD",
+                    "tabs": [
+                        {
+                            "tabProperties": {"tabId": "t.0", "title": "Luật chơi"},
+                            "documentTab": {
+                                "body": {
+                                    "content": [
+                                        {
+                                            "paragraph": {
+                                                "elements": [
+                                                    {"textRun": {"content": "Người chơi mở ô.\n"}}
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                        {
+                            "tabProperties": {"tabId": "t.1", "title": "Khác"},
+                            "documentTab": {
+                                "body": {
+                                    "content": [
+                                        {
+                                            "paragraph": {
+                                                "elements": [{"textRun": {"content": "Bỏ tab này.\n"}}]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                    ],
+                }
+            )
+
+        original = check_wbs.urllib.request.urlopen
+        check_wbs.urllib.request.urlopen = fake_urlopen
+        try:
+            bundle = fetch_sheet_docs("access-token", link, "gdd")
+        finally:
+            check_wbs.urllib.request.urlopen = original
+        self.assertEqual(bundle.spreadsheet_title, "[gsc00002 - FODB] GDD")
+        self.assertEqual(len(bundle.docs), 1)
+        self.assertEqual(bundle.docs[0].text, "Người chơi mở ô.\n")
+        self.assertEqual(find_game_id(bundle.spreadsheet_title), "gsc00002")
 
 
 class TokenReportTest(unittest.TestCase):
