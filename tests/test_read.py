@@ -80,7 +80,7 @@ class GeminiModelOrderTest(unittest.TestCase):
         calls = []
         original = check_wbs.call_gemini
 
-        def fake_call(api_key, model, prompt):
+        def fake_call(api_key, model, prompt, system_prompt=None):
             calls.append(model)
             if model != "gemini-2.5-flash":
                 raise GeminiHTTPError(503, "high demand", True)
