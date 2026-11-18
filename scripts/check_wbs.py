@@ -51,24 +51,30 @@ SYSTEM_PROMPT_GDD = (
     "Không bịa ô hoặc câu không có trong nội dung được gửi."
 )
 TOKEN_URL = "https://oauth2.googleapis.com/token"
-SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly"
+SHEETS_SCOPE = " ".join(
+    (
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/documents.readonly",
+    )
+)
 SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets"
+DOCS_API = "https://docs.googleapis.com/v1/documents"
 COMMIT_MARKER = re.compile(r"\[(check-wbs|check-gdd|check)\]")
-SHEET_LABEL_URL = re.compile(
+GOOGLE_LABEL_URL = re.compile(
     r"(?i)(?<![A-Za-z0-9])(wbs|gdd)\s*[:=]\s*"
-    r"(https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+[^\s]*)"
+    r"(https://docs\.google\.com/(?:spreadsheets|document)/d/[A-Za-z0-9_-]+[^\s]*)"
 )
 GAME_LABEL = re.compile(r"(?i)(?<![A-Za-z0-9])game\s*[:=]\s*([A-Za-z0-9_-]+)")
 GAME_CODE = re.compile(r"\bgsc\d+\b", re.IGNORECASE)
 BRACKET_NAME = re.compile(r"\[([^\[\]]+)\]")
 WBS_URL_HELP = (
-    "Commit [check-wbs] cần cả hai URL Google Sheet có nhãn.\n"
+    "Commit [check-wbs] cần URL Google Sheet cho wbs và URL Google Sheet hoặc Google Doc cho gdd.\n"
     "Ví dụ: [check-wbs] wbs: https://docs.google.com/spreadsheets/d/.../edit#gid=0 "
-    "gdd: https://docs.google.com/spreadsheets/d/.../edit#gid=0"
+    "gdd: https://docs.google.com/document/d/.../edit"
 )
 GDD_URL_HELP = (
-    "Commit [check-gdd] cần một URL Google Sheet có nhãn gdd:.\n"
-    "Ví dụ: [check-gdd] gdd: https://docs.google.com/spreadsheets/d/.../edit#gid=0"
+    "Commit [check-gdd] cần một URL Google Sheet hoặc Google Doc có nhãn gdd:.\n"
+    "Ví dụ: [check-gdd] gdd: https://docs.google.com/document/d/.../edit"
 )
 
 
@@ -154,6 +160,8 @@ class SheetLink:
     url: str
     spreadsheet_id: str
     gid: str | None
+    kind: str = "sheet"
+    tab: str | None = None
 
 
 @dataclass(frozen=True)
@@ -685,33 +693,50 @@ def review_with_gemini(
     raise RuntimeError(f"Gemini không gọi được với các model đã thử. {joined}")
 
 
-def parse_sheet_url(raw: str) -> SheetLink:
+def parse_google_url(raw: str) -> SheetLink:
     cleaned = raw.strip().rstrip(".,);>\"'")
     parsed = urllib.parse.urlparse(cleaned)
+    if "/document/" in parsed.path:
+        kind = "doc"
+    elif "/spreadsheets/" in parsed.path:
+        kind = "sheet"
+    else:
+        raise ValueError("URL không phải Google Sheet hoặc Google Doc.")
     parts = [part for part in parsed.path.split("/") if part]
     try:
-        spreadsheet_id = parts[parts.index("d") + 1]
+        file_id = parts[parts.index("d") + 1]
     except (ValueError, IndexError) as exc:
-        raise ValueError("URL Google Sheet không có spreadsheet id.") from exc
+        raise ValueError("URL Google không có file id.") from exc
     allowed_id = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
-    if not spreadsheet_id or any(char not in allowed_id for char in spreadsheet_id):
-        raise ValueError("URL Google Sheet không có spreadsheet id.")
+    if not file_id or any(char not in allowed_id for char in file_id):
+        raise ValueError("URL Google không có file id.")
+    if kind == "doc":
+        tab_values = urllib.parse.parse_qs(parsed.query).get("tab", [])
+        tab = tab_values[0] if tab_values else None
+        return SheetLink(cleaned, file_id, None, "doc", tab)
     query_gid = urllib.parse.parse_qs(parsed.query).get("gid", [])
     fragment_gid = urllib.parse.parse_qs(parsed.fragment).get("gid", [])
     gid = fragment_gid[0] if fragment_gid else (query_gid[0] if query_gid else None)
     if gid is not None and not gid.isdigit():
         gid = None
-    return SheetLink(cleaned, spreadsheet_id, gid)
+    return SheetLink(cleaned, file_id, gid, "sheet", None)
+
+
+def parse_sheet_url(raw: str) -> SheetLink:
+    link = parse_google_url(raw)
+    if link.kind != "sheet":
+        raise ValueError("URL Google Sheet không có spreadsheet id.")
+    return link
 
 
 def labeled_links(body: str) -> tuple[dict[str, SheetLink], str]:
     found: dict[str, list[SheetLink]] = {"wbs": [], "gdd": []}
-    for match in SHEET_LABEL_URL.finditer(body):
+    for match in GOOGLE_LABEL_URL.finditer(body):
         label = match.group(1).lower()
         try:
-            link = parse_sheet_url(match.group(2))
+            link = parse_google_url(match.group(2))
         except ValueError:
-            return {}, "URL Google Sheet không đúng dạng docs.google.com/spreadsheets/d/..."
+            return {}, "URL không đúng dạng Google Sheet hoặc Google Doc."
         found[label].append(link)
     picked: dict[str, SheetLink] = {}
     for label, links in found.items():
@@ -751,6 +776,8 @@ def parse_commit_message(message: str) -> CommitRequest:
                 wbs_error = error
             elif "wbs" not in links or "gdd" not in links:
                 wbs_error = WBS_URL_HELP
+            elif links["wbs"].kind != "sheet":
+                wbs_error = "URL wbs phải là Google Sheet (docs.google.com/spreadsheets)."
             else:
                 wbs_link = links["wbs"]
                 wbs_gdd_link = links["gdd"]
@@ -884,10 +911,14 @@ def google_json(url: str, access_token: str) -> dict:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         if exc.code == 403:
-            raise RuntimeError("Tài khoản Google không có quyền xem sheet này.") from None
+            raise RuntimeError(
+                "Tài khoản Google không có quyền xem file này. "
+                "Với Google Doc, bật Google Docs API, thêm scope documents.readonly, "
+                "rồi chạy lại scripts/google_login.py."
+            ) from None
         if exc.code == 404:
             raise RuntimeError(
-                "Không đọc được Google Sheet. Kiểm tra URL và quyền của tài khoản đã đăng nhập."
+                "Không đọc được file Google. Kiểm tra URL và quyền của tài khoản đã đăng nhập."
             ) from None
         detail = exc.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"Google Sheets trả về HTTP {exc.code}: {detail}") from None
@@ -921,7 +952,95 @@ def sheet_range(title: str) -> str:
     return "'" + title.replace("'", "''") + "'"
 
 
+def element_text(element: dict) -> str:
+    paragraph = element.get("paragraph")
+    if isinstance(paragraph, dict):
+        chunks: list[str] = []
+        for run in paragraph.get("elements") or []:
+            if not isinstance(run, dict):
+                continue
+            text_run = run.get("textRun")
+            if isinstance(text_run, dict) and isinstance(text_run.get("content"), str):
+                chunks.append(text_run["content"])
+        return "".join(chunks)
+    table = element.get("table")
+    if isinstance(table, dict):
+        lines: list[str] = []
+        for row in table.get("tableRows") or []:
+            if not isinstance(row, dict):
+                continue
+            cells: list[str] = []
+            for cell in row.get("tableCells") or []:
+                if not isinstance(cell, dict):
+                    continue
+                cells.append(structural_text(cell).replace("\n", " ").strip())
+            lines.append("\t".join(cells))
+        if not lines:
+            return ""
+        return "\n".join(lines) + "\n"
+    return ""
+
+
+def structural_text(body: dict | None) -> str:
+    if not isinstance(body, dict):
+        return ""
+    content = body.get("content")
+    if not isinstance(content, list):
+        return ""
+    return "".join(element_text(element) for element in content if isinstance(element, dict))
+
+
+def doc_sections(document: dict, tab_id: str | None) -> list[tuple[str, str]]:
+    tabs = document.get("tabs")
+    if not isinstance(tabs, list) or not tabs:
+        title = document.get("title") if isinstance(document.get("title"), str) else "Doc"
+        return [(title, structural_text(document.get("body") if isinstance(document.get("body"), dict) else None))]
+    sections: list[tuple[str, str]] = []
+
+    def walk(items: list) -> None:
+        for tab in items:
+            if not isinstance(tab, dict):
+                continue
+            props = tab.get("tabProperties") if isinstance(tab.get("tabProperties"), dict) else {}
+            current_id = props.get("tabId") if isinstance(props.get("tabId"), str) else ""
+            title = props.get("title") if isinstance(props.get("title"), str) and props.get("title") else current_id or "Doc"
+            selected = tab_id is None or current_id == tab_id
+            if selected:
+                document_tab = tab.get("documentTab") if isinstance(tab.get("documentTab"), dict) else {}
+                body = document_tab.get("body") if isinstance(document_tab.get("body"), dict) else None
+                sections.append((title, structural_text(body)))
+            children = tab.get("childTabs")
+            if isinstance(children, list) and (tab_id is None or current_id != tab_id):
+                walk(children)
+
+    walk(tabs)
+    if tab_id is not None and not sections:
+        raise RuntimeError(f"Không thấy tab {tab_id} trong Google Doc.")
+    return sections
+
+
+def fetch_google_doc(access_token: str, link: SheetLink, kind: str) -> SheetBundle:
+    doc_url = (
+        f"{DOCS_API}/{urllib.parse.quote(link.spreadsheet_id, safe='')}"
+        + "?"
+        + urllib.parse.urlencode({"includeTabsContent": "true"})
+    )
+    document = google_json(doc_url, access_token)
+    title = document.get("title") if isinstance(document.get("title"), str) else ""
+    docs: list[SourceDoc] = []
+    for section_title, text in doc_sections(document, link.tab):
+        limited, line_count, truncated = limit_text(text)
+        docs.append(
+            SourceDoc(f"{link.spreadsheet_id}/{section_title}", kind, limited, line_count, truncated)
+        )
+    if not docs:
+        raise RuntimeError("Google Doc không có nội dung.")
+    return SheetBundle(title, docs)
+
+
 def fetch_sheet_docs(access_token: str, link: SheetLink, kind: str) -> SheetBundle:
+    if link.kind == "doc":
+        return fetch_google_doc(access_token, link, kind)
     meta_url = (
         f"{SHEETS_API}/{urllib.parse.quote(link.spreadsheet_id, safe='')}"
         + "?"
