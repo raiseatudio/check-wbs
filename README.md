@@ -77,7 +77,7 @@ Job review cần `GEMINI_API_KEY` và `DISCORD_WEBHOOK_URL`. Lệnh đọc Googl
 
 ## Đọc kết quả
 
-Sau khi check xong, báo cáo được gửi vào kênh Discord của webhook. Dòng đầu là `[Check WBS - GameID]` hoặc `[Check GDD - GameID]`, rồi đến nội dung review. GameID lấy từ nhãn `game:` trong commit, từ mã `gsc` kèm số trong tên file hoặc tên Google Sheet, hoặc từ cụm trong ngoặc vuông như `[gsc00002 - FODB]`. Tin dài được cắt thành nhiều tin nhắn. Token không xuất hiện trong báo cáo.
+Sau khi check xong, báo cáo được gửi vào kênh Discord của webhook. Dòng đầu là `[Check WBS - GameID]` hoặc `[Check GDD - GameID]`, rồi đến nội dung review. Mỗi ý lỗi hoặc việc sửa bắt đầu bằng `File [WBS-tênproject-dòng 52]` hoặc `File [GDD-tênproject-dòng 12]`. GameID lấy từ nhãn `game:` trong commit, từ mã `gsc` kèm số trong tên file hoặc tên Google Sheet, hoặc từ cụm trong ngoặc vuông như `[gsc00002 - FODB]`. Tin dài được cắt thành nhiều tin nhắn. Token không xuất hiện trong báo cáo.
 
 Bản sao của báo cáo cũng nằm ở phần Summary của lần chạy Action.
 
