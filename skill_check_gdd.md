@@ -39,7 +39,7 @@ Nội dung được gửi là các ô của Google Sheet, đã ghép thành CSV.
 
 Viết bằng tiếng Việt, theo đúng năm mục sau.
 
-Mỗi lỗi hoặc việc sửa là một dòng, bắt đầu đúng khuôn:
+Mỗi lỗi hoặc việc sửa là một dòng, bắt đầu  đúng khuôn:
 
 `File [GDD-tênproject-dòng 12] nội dung.`
 
