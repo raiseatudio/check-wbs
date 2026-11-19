@@ -9,9 +9,9 @@ WBS là bảng CSV hoặc TSV, không có schema cố định. Cột do Google S
 - Với WBS, dòng header là dòng chứa tên cột, không phải lúc nào cũng là dòng đầu file. Bảng có thể có vài dòng tiêu đề phía trên (tên game, link). Nếu không chắc dòng nào là header, nêu giả định rồi mới kết luận.
 - WBS mẫu của dự án có header: `STT`, `TASK TITLE`, `ASSIGNEE`, `START DATE`, `END DATE`, `ESTIMATE TIME (Hour)`, `ACTUAL TIME (Hour)`, `STATUS`, `BUILD`, `Definition of Done`, `NOTE`. `STT` có thể trùng, nhận task bằng `TASK TITLE`. `BUILD` là mốc `1st Build`, `Full Build` hoặc `FT + Opt`. `STATUS` là `DROP` thì task đã bỏ khỏi phạm vi còn lại.
 - Đọc tên cột đúng như header. Không đổi tên cột và không giả định một cột tồn tại nếu header không có.
-- Với GDD dạng văn bản, đọc theo đoạn và dòng. Trích dẫn tên file, số dòng, và câu hoặc mục trong tài liệu.
+- Với GDD dạng văn bản, đọc theo đoạn và dòng. Trích dẫn theo khuôn ở mục Khuôn báo cáo.
 - Một dòng là task khi có tên việc và đó là việc phải bàn giao. Dòng đầu mục (phase, nhóm) chỉ gom các task con: thường chỉ có mã và tên, các cột việc để trống, và có dòng con bên dưới. Đầu mục không phải task. Mã dạng chữ (A, B) hoặc số La Mã (I, II) có thể là đầu mục hoặc task; phân biệt bằng cột việc và việc có dòng con hay không.
-- Khi trích dẫn một dòng, ghi tên file và số dòng trong file (dòng 1 là dòng đầu tiên của file, kể cả header). Nếu suy ra được cột mã hoặc ID, ghi thêm giá trị đó.
+- Dòng 1 là dòng đầu tiên của file, kể cả header. Khi nêu một dòng trong báo cáo, chỉ dùng khuôn `File [WBS-tênproject-dòng xx]` hoặc `File [GDD-tênproject-dòng xx]`. Không ghi id spreadsheet và không ghi `File <id>/WBS, dòng 52`.
 - Không bịa dòng, số liệu, hoặc cột không có trong nội dung được gửi.
 - Nếu một file ghi chú đã bị cắt ký tự, chỉ kết luận trên phần còn đọc được và ghi rõ phần sau chưa được xem.
 
@@ -305,21 +305,34 @@ Mỗi mục dưới đây là một task cần có trong WBS, viết theo cùng 
 
 Trả lời bằng tiếng Việt, dùng đúng các mục sau. Không thêm mục khác.
 
+Mỗi ý trong các mục liệt kê là một dòng, bắt đầu đúng khuôn:
+
+`File [WBS-tênproject-dòng 52] PopupPromotion: nội dung.`
+
+`File [GDD-tênproject-dòng 12] nội dung.`
+
+- `WBS` hoặc `GDD` là loại tài liệu đang trích.
+- `tênproject` là mã project ghi ở đầu prompt, ví dụ `gsc02`. Không thay bằng id spreadsheet, tên tab, hay đường dẫn file.
+- `dòng` là số dòng trong nội dung được gửi. Dòng 1 là dòng đầu.
+- Phần sau ngoặc là nội dung: tên task hoặc hạng mục, rồi mô tả. Không bọc thêm `(Task 5: ...)`.
+
+Ví dụ: `File [WBS-gsc02-dòng 52] PopupPromotion: Tiêu chí Definition of Done - DoD ghi 2 template text là "Standard/Daily" thay vì "newPromotion/resetPromotion".`
+
 ### Kết luận
 
-Một trong ba giá trị: hợp lý, cần chỉnh, thiếu dữ liệu. Một câu nêu lý do chính.
+Một trong ba giá trị: hợp lý, cần chỉnh, thiếu dữ liệu. Một câu nêu lý do chính. Mục này không dùng khuôn `File [...]`.
 
 Dùng "thiếu dữ liệu" khi bảng bị cắt, thiếu cột để áp tiêu chí, hoặc không đọc được header.
 
 ### Đối chiếu GDD sang WBS
 
-Liệt kê hạng mục GDD chưa có việc tương ứng trong WBS. Mỗi ý gồm file GDD, số dòng hoặc mã, và việc còn thiếu. Nếu không thấy lỗ hổng, ghi "Không thấy hạng mục GDD nào thiếu việc."
+Liệt kê hạng mục GDD chưa có việc tương ứng trong WBS. Mỗi ý dùng `File [GDD-tênproject-dòng xx]`, rồi hạng mục và việc còn thiếu. Nếu không thấy lỗ hổng, ghi "Không thấy hạng mục GDD nào thiếu việc."
 
 ### Lỗi cấu trúc WBS
 
-Liệt kê task không đạt các tiêu chí ở trên. Mỗi ý gồm file WBS, số dòng hoặc mã, tiêu chí, và mô tả lỗi. Nếu không có, ghi "Không thấy lỗi cấu trúc."
+Liệt kê task không đạt các tiêu chí ở trên. Mỗi ý dùng `File [WBS-tênproject-dòng xx]`, rồi tên task, tiêu chí, và mô tả lỗi. Nếu không có, ghi "Không thấy lỗi cấu trúc."
 
 ### Danh sách sửa
 
-Mỗi mục là một việc cần sửa: file, dòng hoặc mã, đề xuất sửa cụ thể. Nếu không cần sửa, ghi "Không có mục cần sửa."
+Mỗi mục là một việc cần sửa, cùng khuôn `File [WBS-tênproject-dòng xx]` hoặc `File [GDD-tênproject-dòng xx]`, rồi đề xuất sửa cụ thể. Nếu không cần sửa, ghi "Không có mục cần sửa."
 

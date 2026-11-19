@@ -363,13 +363,24 @@ def render_source(doc: SourceDoc) -> str:
     return f"## `{doc.name}` ({label}, {note})\n\n{fence}\n{doc.text}\n{fence}\n"
 
 
+def citation_note(project: str) -> str:
+    name = project.strip() or "tênproject"
+    return (
+        f"Tên project dùng khi trích dẫn: {name}\n"
+        "Mỗi ý lỗi hoặc việc sửa bắt đầu bằng "
+        f"`File [WBS-{name}-dòng 52]` hoặc `File [GDD-{name}-dòng 12]`. "
+        "Không ghi id spreadsheet và không ghi dạng `File <id>/WBS, dòng 52`."
+    )
+
+
 def prompt_from_sources(
     skill_heading: str,
     skill: str,
     sections: list[tuple[str, list[SourceDoc]]],
     closing: str,
+    project: str = "",
 ) -> str:
-    parts = [f"# {skill_heading}", "", skill.strip(), ""]
+    parts = [f"# {skill_heading}", "", skill.strip(), "", citation_note(project), ""]
     for heading, docs in sections:
         parts.append(f"# {heading}")
         parts.append("")
@@ -379,7 +390,7 @@ def prompt_from_sources(
     return "\n".join(parts)
 
 
-def build_user_prompt(skill: str, root: Path, inventory: Inventory) -> str:
+def build_user_prompt(skill: str, root: Path, inventory: Inventory, project: str = "") -> str:
     wbs_docs = [source_from_path(root, path, "wbs") for path in inventory.wbs]
     gdd_docs = [source_from_path(root, path, "gdd") for path in inventory.gdd]
     return prompt_from_sources(
@@ -387,6 +398,7 @@ def build_user_prompt(skill: str, root: Path, inventory: Inventory) -> str:
         skill,
         [("Bảng WBS", wbs_docs), ("GDD", gdd_docs)],
         "Hãy viết báo cáo theo đúng khuôn trong skill_check_wbs.md.",
+        project,
     )
 
 
@@ -1031,7 +1043,7 @@ def fetch_google_doc(access_token: str, link: SheetLink, kind: str) -> SheetBund
     for section_title, text in doc_sections(document, link.tab):
         limited, line_count, truncated = limit_text(text)
         docs.append(
-            SourceDoc(f"{link.spreadsheet_id}/{section_title}", kind, limited, line_count, truncated)
+            SourceDoc(section_title, kind, limited, line_count, truncated)
         )
     if not docs:
         raise RuntimeError("Google Doc không có nội dung.")
@@ -1082,7 +1094,7 @@ def fetch_sheet_docs(access_token: str, link: SheetLink, kind: str) -> SheetBund
         if not isinstance(rows, list):
             rows = []
         text, line_count, truncated = limit_text(rows_to_csv(rows))
-        docs.append(SourceDoc(f"{link.spreadsheet_id}/{title}", kind, text, line_count, truncated))
+        docs.append(SourceDoc(title, kind, text, line_count, truncated))
     return SheetBundle(spreadsheet_title, docs)
 
 
@@ -1124,7 +1136,7 @@ def review_files() -> int:
         return 1
     report = review_with_gemini(
         require_gemini(),
-        build_user_prompt(skill, root, inventory),
+        build_user_prompt(skill, root, inventory, inventory_game_id(inventory)),
         SYSTEM_PROMPT,
     )
     publish(report, root, inventory, title="Check WBS", game_id=inventory_game_id(inventory))
@@ -1144,11 +1156,17 @@ def review_wbs_sheet(request: CommitRequest) -> int:
     access_token = access_token_from_env()
     wbs_sheet = fetch_sheet_docs(access_token, request.wbs_link, "wbs")
     gdd_sheet = fetch_sheet_docs(access_token, request.wbs_gdd_link, "gdd")
+    game_id = find_game_id(
+        current_commit_message(),
+        wbs_sheet.spreadsheet_title,
+        gdd_sheet.spreadsheet_title,
+    )
     prompt = prompt_from_sources(
         "skill_check_wbs.md",
         skill,
         [("Bảng WBS", wbs_sheet.docs), ("GDD", gdd_sheet.docs)],
         "Hãy viết báo cáo theo đúng khuôn trong skill_check_wbs.md.",
+        game_id,
     )
     report = review_with_gemini(api_key, prompt, SYSTEM_PROMPT)
     publish(
@@ -1156,11 +1174,7 @@ def review_wbs_sheet(request: CommitRequest) -> int:
         root,
         EMPTY_INVENTORY,
         title="Check WBS",
-        game_id=find_game_id(
-            current_commit_message(),
-            wbs_sheet.spreadsheet_title,
-            gdd_sheet.spreadsheet_title,
-        ),
+        game_id=game_id,
     )
     return 0
 
@@ -1177,11 +1191,13 @@ def review_gdd_sheet(request: CommitRequest) -> int:
     api_key = require_gemini()
     access_token = access_token_from_env()
     gdd_sheet = fetch_sheet_docs(access_token, request.gdd_link, "gdd")
+    game_id = find_game_id(current_commit_message(), gdd_sheet.spreadsheet_title)
     prompt = prompt_from_sources(
         "skill_check_gdd.md",
         skill,
         [("GDD", gdd_sheet.docs)],
         "Hãy viết báo cáo theo đúng khuôn trong skill_check_gdd.md.",
+        game_id,
     )
     report = review_with_gemini(api_key, prompt, SYSTEM_PROMPT_GDD)
     publish(
@@ -1189,7 +1205,7 @@ def review_gdd_sheet(request: CommitRequest) -> int:
         root,
         EMPTY_INVENTORY,
         title="Check GDD",
-        game_id=find_game_id(current_commit_message(), gdd_sheet.spreadsheet_title),
+        game_id=game_id,
     )
     return 0
 
