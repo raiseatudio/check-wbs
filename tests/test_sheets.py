@@ -152,7 +152,7 @@ class SheetCsvTest(unittest.TestCase):
         finally:
             check_wbs.urllib.request.urlopen = original
         self.assertEqual(len(bundle.docs), 1)
-        self.assertEqual(bundle.docs[0].name, "sheetId123/GDD")
+        self.assertEqual(bundle.docs[0].name, "GDD")
         self.assertIn('"Làm, UI"', bundle.docs[0].text)
         self.assertEqual(len(seen), 2)
 
